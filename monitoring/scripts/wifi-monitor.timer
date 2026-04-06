@@ -1,0 +1,10 @@
+[Unit]
+Description=Run WiFi congestion monitor every 5 minutes
+
+[Timer]
+OnBootSec=60
+OnUnitActiveSec=5min
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

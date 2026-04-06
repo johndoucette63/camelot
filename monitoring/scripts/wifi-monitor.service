@@ -1,0 +1,13 @@
+[Unit]
+Description=WiFi Channel Congestion Monitor
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /home/john/docker/monitoring/scripts/wifi_monitor.py --once
+User=root
+Environment=INFLUXDB_HOST=localhost
+Environment=INFLUXDB_PORT=8086
+Environment=INFLUXDB_DB=network_metrics
+Environment=INFLUXDB_USER=grafana
+Environment=INFLUXDB_PASSWORD=grafanapass
