@@ -1,38 +1,76 @@
-# Home Media Infrastructure
+# Camelot Infrastructure
 
 ## Network Overview
 
+```mermaid
+graph TB
+    subgraph network["192.168.10.0/24 — Camelot Network"]
+        holygrail["<b>HOLYGRAIL</b><br/>192.168.10.TBD<br/><i>Ryzen 7800X3D · 32GB DDR5 · RTX 2070S</i><br/>Ubuntu 24.04 LTS<br/><br/>Plex (NVENC) · Ollama (GPU)<br/>Network Advisor · Grafana<br/>InfluxDB · Smokeping<br/>Portainer · Traefik"]
+
+        torrentbox["<b>TORRENTBOX</b><br/>192.168.10.141<br/><i>Pi 5 (8GB) · Debian Trixie</i><br/><br/>Deluge + VPN · Sonarr · Radarr<br/>Prowlarr · Lidarr<br/>LazyLibrarian · FlareSolverr"]
+
+        nas["<b>NAS</b><br/>192.168.10.105<br/><i>Pi 4 (4GB) · OpenMediaVault</i><br/><br/>Samba/SMB · Pi-hole DNS"]
+
+        mediaserver["<b>MEDIA SERVER</b><br/>192.168.10.150<br/><i>Pi 5 (8GB) · Debian Bookworm</i><br/><br/>Plex* · Emby*<br/><i>* migrating to HOLYGRAIL</i>"]
+
+        mac["<b>MAC WORKSTATION</b><br/>192.168.10.145<br/><i>MacBook Pro M4 Pro · 48GB</i><br/><br/>Dev / Management only"]
+
+        ha["<b>HOME ASSISTANT</b><br/><i>Dedicated Pi</i><br/><br/>Thread · Zigbee<br/>HomeKit · Aqara"]
+
+        storage[("NAS STORAGE<br/>4.6TB Media")]
+
+        mac -- "SSH + API" --> holygrail
+        mac -- "SSH + API" --> torrentbox
+        mac -- "SSH + API" --> nas
+        mac -- "SSH + API" --> mediaserver
+
+        torrentbox -- "SMB/CIFS" --> storage
+        mediaserver -- "SMB/CIFS" --> storage
+        holygrail -- "SMB/CIFS" --> storage
+        nas --- storage
+    end
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          192.168.10.0/24 Network                            │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐             │
-│  │   TORRENTBOX    │  │      NAS        │  │   MEDIA SERVER  │             │
-│  │ 192.168.10.141  │  │ 192.168.10.105  │  │ 192.168.10.150  │             │
-│  │                 │  │                 │  │                 │             │
-│  │ Pi 5 (8GB)      │  │ Pi 4 (4GB)      │  │ Pi 5 (8GB)      │             │
-│  │ Debian Trixie   │  │ OpenMediaVault  │  │ Debian Bookworm │             │
-│  │                 │  │                 │  │                 │             │
-│  │ Services:       │  │ Services:       │  │ Services:       │             │
-│  │ - Deluge        │  │ - Samba/SMB     │  │ - Plex          │             │
-│  │ - Sonarr        │  │ - Pi-hole DNS   │  │ - Emby          │             │
-│  │ - Radarr        │  │                 │  │                 │             │
-│  │ - Prowlarr      │  │                 │  │                 │             │
-│  │ - Lidarr        │  │                 │  │                 │             │
-│  │ - LazyLibrarian │  │                 │  │                 │             │
-│  │ - OpenVPN (PIA) │  │                 │  │                 │             │
-│  └────────┬────────┘  └────────┬────────┘  └────────┬────────┘             │
-│           │                    │                    │                       │
-│           │    SMB/CIFS        │      SMB/CIFS      │                       │
-│           └────────────────────┼────────────────────┘                       │
-│                                │                                            │
-│                      ┌─────────┴─────────┐                                  │
-│                      │   NAS STORAGE     │                                  │
-│                      │   4.6TB Media     │                                  │
-│                      └───────────────────┘                                  │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+
+---
+
+## HOLYGRAIL (192.168.10.TBD)
+
+### System Info
+
+| Property | Value |
+|----------|-------|
+| Hostname | holygrail |
+| Hardware | Custom desktop (basement server, headless) |
+| CPU | AMD Ryzen 7 7800X3D (8c/16t, Zen 4 3D V-Cache) |
+| RAM | 32 GB DDR5 |
+| GPU | NVIDIA RTX 2070 Super (8 GB VRAM) |
+| OS | Windows 11 Pro — **migrating to Ubuntu Server 24.04 LTS** |
+| NIC | Realtek 2.5GbE (wired) |
+| SSH | `ssh john@192.168.10.TBD` (post-migration) |
+
+### Storage
+
+| Disk | Size | Free | Format | Description |
+|------|------|------|--------|-------------|
+| NVMe SSD | 1 TB | ~584 GB | NTFS → ext4 | OS + Docker volumes |
+
+### Planned Services (post-migration)
+
+| Service | Port | Description |
+|---------|------|-------------|
+| Portainer | 9443 | Container management UI |
+| Plex | 32400 | Media server (NVENC hardware transcoding) |
+| Ollama | 11434 | Local LLM API (GPU-accelerated) |
+| Network Advisor | TBD | AI-powered network dashboard |
+| Grafana | 3000 | Monitoring dashboards |
+| InfluxDB | 8086 | Time-series metrics |
+| Smokeping | TBD | Latency monitoring |
+| Traefik | 80/443 | Reverse proxy |
+
+### Migration Status
+
+**Current:** Windows 11 Pro (not yet migrated)
+**Target:** Ubuntu Server 24.04 LTS — see [docs/PROJECT-PLAN.md] Phase 1
 
 ---
 
@@ -347,6 +385,54 @@ docker run -d \
 
 ---
 
+## Mac Workstation (192.168.10.145)
+
+### System Info
+
+| Property | Value |
+|----------|-------|
+| Hostname | Johns-MacBook-Pro.local |
+| Hardware | MacBook Pro (Apple M4 Pro, 48GB RAM) |
+| Model | Mac16,7 (MX2Y3LL/A) |
+| OS | macOS 26.3.1 |
+| SSH | N/A (management workstation — not a server) |
+
+### Role
+
+Development and management workstation. **No services are hosted on this machine.** Used for:
+- Remote management of all Raspberry Pi devices via SSH
+- Monitoring and troubleshooting torrent services (Deluge, Sonarr, Radarr, etc.)
+- Infrastructure development and code management (this repo)
+- Network benchmarking and monitoring from macOS
+- Accessing web UIs for all services
+
+### SSH Access to Devices
+
+```bash
+ssh john@192.168.10.141   # Torrentbox
+ssh pi@192.168.10.105     # NAS
+ssh pi@192.168.10.150     # Media Server
+```
+
+### NAS SMB Access (macOS)
+
+Connect via Finder: `smb://192.168.10.105/<ShareName>`
+
+| Share | Finder URL |
+|-------|-----------|
+| Movies | smb://192.168.10.105/Movies |
+| TV | smb://192.168.10.105/TV |
+| Torrents | smb://192.168.10.105/Torrents |
+| Music | smb://192.168.10.105/Music |
+| Books | smb://192.168.10.105/Books |
+
+Or mount from terminal:
+```bash
+mount_smbfs //pi@192.168.10.105/Movies /Volumes/Movies
+```
+
+---
+
 ## Application Configuration
 
 ### Root Folders
@@ -402,30 +488,14 @@ FlareSolverr: `http://flaresolverr:8191`
 
 ## Data Flow
 
-```
-1. Add media to Sonarr/Radarr
-         │
-         ▼
-2. Prowlarr searches indexers
-   (FlareSolverr bypasses CloudFlare)
-         │
-         ▼
-3. Torrent sent to Deluge (via VPN)
-         │
-         ▼
-4. Downloaded to /downloads/incomplete
-         │
-         ▼
-5. Moved to /downloads/complete
-   (seeding stops, torrent removed)
-         │
-         ▼
-6. Sonarr/Radarr imports and renames
-   TV → /tv → /mnt/nas/tv
-   Movies → /movies → /mnt/nas/movies
-         │
-         ▼
-7. Plex/Emby auto-detect new media
+```mermaid
+flowchart TD
+    A["1. Add media to Sonarr / Radarr"] --> B["2. Prowlarr searches indexers<br/><i>(FlareSolverr bypasses CloudFlare)</i>"]
+    B --> C["3. Torrent sent to Deluge<br/><i>(via PIA VPN)</i>"]
+    C --> D["4. Downloaded to /downloads/incomplete"]
+    D --> E["5. Moved to /downloads/complete<br/><i>(seeding stops, torrent removed)</i>"]
+    E --> F["6. Sonarr/Radarr imports and renames<br/>TV → /mnt/nas/tv<br/>Movies → /mnt/nas/movies"]
+    F --> G["7. Plex / Emby auto-detect new media"]
 ```
 
 ---
@@ -514,4 +584,4 @@ ssh pi@192.168.10.105 "sudo chmod -R 777 /mnt/media-disk/MediaStorage/Media/Movi
 
 ---
 
-*Updated: January 2026*
+*Updated: April 2026*

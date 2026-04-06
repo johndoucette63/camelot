@@ -1,0 +1,24 @@
+# Torrentbox Infrastructure SSH Config
+# Append to ~/.ssh/config or include via: Include ~/Code/torrentbox/scripts/ssh-config
+
+Host torrentbox
+    HostName 192.168.10.141
+    User john
+    IdentityFile ~/.ssh/id_ed25519
+
+Host nas
+    HostName 192.168.10.105
+    User pi
+    IdentityFile ~/.ssh/id_ed25519
+
+Host mediaserver
+    HostName 192.168.10.150
+    User pi
+    IdentityFile ~/.ssh/id_ed25519
+
+# Shared defaults for all Pi hosts
+Host torrentbox nas mediaserver
+    StrictHostKeyChecking accept-new
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+    ConnectTimeout 10
