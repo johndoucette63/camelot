@@ -44,7 +44,6 @@ The advisor must understand and account for the following pre-existing infrastru
 
 ### AI & Inference
 - **Ollama** — to be deployed on HOLYGRAIL with GPU acceleration (RTX 2070 Super)
-- **HumblePie** — ambient meeting transcription system (Mac Pro M4, local Llama, Newline Newpie speakerphone); may migrate transcription workloads to HOLYGRAIL Whisper endpoint
 - **Local LLM API** — HOLYGRAIL will expose an OpenAI-compatible endpoint on the LAN
 
 ### Monitoring & Services (Pi-hosted, to be consolidated)
