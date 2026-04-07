@@ -94,6 +94,8 @@ bash scripts/benchmark-drives.sh
 ## Active Technologies
 - Bash (POSIX-compatible shell scripts) + Ubuntu Server 24.04 LTS, OpenSSH, UFW, Netplan 1.0 (001-ubuntu-migration)
 - N/A (OS-level disk, no application storage) (001-ubuntu-migration)
+- Bash (POSIX-compatible shell scripts) + NVIDIA driver (560-server), Docker Engine, Docker Compose v2, nvidia-container-toolkit, Portainer CE (002-docker-gpu-infra)
+- Docker volumes for Portainer data; no application databases (002-docker-gpu-infra)
 
 ## Recent Changes
 - 001-ubuntu-migration: Added Bash (POSIX-compatible shell scripts) + Ubuntu Server 24.04 LTS, OpenSSH, UFW, Netplan 1.0

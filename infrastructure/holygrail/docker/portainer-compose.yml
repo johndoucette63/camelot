@@ -1,0 +1,17 @@
+# Portainer CE — Container Management Web UI
+# Deploy with: docker compose -f portainer-compose.yml up -d
+# Access at: https://192.168.10.129:9443
+
+services:
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: always
+    ports:
+      - "9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+
+volumes:
+  portainer_data:
