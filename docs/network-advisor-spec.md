@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Build a **local-first, AI-powered home network advisor** that provides intelligent guidance, monitoring, and configuration assistance for a sophisticated home lab environment. The application runs as a web service (Docker container) on the HOLYGRAIL server and is accessible from any device on the local network — primarily a MacBook Pro.
+Build a **local-first, AI-powered home network advisor** that provides intelligent guidance, monitoring, and configuration assistance for the Camelot home infrastructure. The application runs as a web service (Docker container) on the HOLYGRAIL server and is accessible from any device on the local network — primarily a MacBook Pro.
 
 ---
 

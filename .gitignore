@@ -9,5 +9,9 @@
 Thumbs.db
 nul
 
+# Environment and secrets
+.env
+.env.*
+
 # Claude Code local settings
 .claude/

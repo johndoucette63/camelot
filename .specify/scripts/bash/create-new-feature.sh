@@ -293,10 +293,16 @@ else
             HIGHEST=$(get_highest_from_specs "$SPECS_DIR")
             BRANCH_NUMBER=$((HIGHEST + 1))
         fi
+        # Auto-detected numbers get zero-padded to 3 digits
+        FEATURE_NUM=$(printf "%03d" "$((10#$BRANCH_NUMBER))")
+    elif echo "$BRANCH_NUMBER" | grep -Eq '^[0-9]+$'; then
+        # Purely numeric manual number — zero-pad as usual
+        FEATURE_NUM=$(printf "%03d" "$((10#$BRANCH_NUMBER))")
+    else
+        # Non-numeric prefix (e.g., F1.1, F4.2) — use as-is
+        FEATURE_NUM="$BRANCH_NUMBER"
     fi
 
-    # Force base-10 interpretation to prevent octal conversion (e.g., 010 → 8 in octal, but should be 10 in decimal)
-    FEATURE_NUM=$(printf "%03d" "$((10#$BRANCH_NUMBER))")
     BRANCH_NAME="${FEATURE_NUM}-${BRANCH_SUFFIX}"
 fi
 
