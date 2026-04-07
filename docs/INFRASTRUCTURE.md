@@ -5,13 +5,13 @@
 ```mermaid
 graph TB
     subgraph network["192.168.10.0/24 — Camelot Network"]
-        holygrail["<b>HOLYGRAIL</b><br/>192.168.10.TBD<br/><i>Ryzen 7800X3D · 32GB DDR5 · RTX 2070S</i><br/>Ubuntu 24.04 LTS<br/><br/>Plex (NVENC) · Ollama (GPU)<br/>Network Advisor · Grafana<br/>InfluxDB · Smokeping<br/>Portainer · Traefik"]
+        holygrail["<b>HOLYGRAIL</b><br/>192.168.10.129<br/><i>Ryzen 7800X3D · 32GB DDR5 · RTX 2070S</i><br/>Ubuntu Server 24.04 LTS<br/><br/>Docker 29.4.0 · NVIDIA 570<br/>Portainer :9443<br/><i>Planned: Plex · Ollama · Traefik</i>"]
 
         torrentbox["<b>TORRENTBOX</b><br/>192.168.10.141<br/><i>Pi 5 (8GB) · Debian Trixie</i><br/><br/>Deluge + VPN · Sonarr · Radarr<br/>Prowlarr · Lidarr<br/>LazyLibrarian · FlareSolverr"]
 
-        nas["<b>NAS</b><br/>192.168.10.105<br/><i>Pi 4 (4GB) · OpenMediaVault</i><br/><br/>Samba/SMB · Pi-hole DNS"]
+        nas["<b>NAS</b><br/>192.168.10.105<br/><i>Pi 4 (4GB) · OpenMediaVault</i><br/><br/>Samba/SMB"]
 
-        mediaserver["<b>MEDIA SERVER</b><br/>192.168.10.150<br/><i>Pi 5 (8GB) · Debian Bookworm</i><br/><br/>Plex* · Emby*<br/><i>* migrating to HOLYGRAIL</i>"]
+        mediaserver["<b>MEDIA SERVER</b><br/>192.168.10.150<br/><i>Pi 5 (8GB) · Debian Bookworm</i><br/><br/>Plex* · Emby* · Pi-hole DNS<br/><i>* migrating to HOLYGRAIL</i>"]
 
         mac["<b>MAC WORKSTATION</b><br/>192.168.10.145<br/><i>MacBook Pro M4 Pro · 48GB</i><br/><br/>Dev / Management only"]
 
@@ -33,7 +33,7 @@ graph TB
 
 ---
 
-## HOLYGRAIL (192.168.10.TBD)
+## HOLYGRAIL (192.168.10.129)
 
 ### System Info
 
@@ -44,33 +44,40 @@ graph TB
 | CPU | AMD Ryzen 7 7800X3D (8c/16t, Zen 4 3D V-Cache) |
 | RAM | 32 GB DDR5 |
 | GPU | NVIDIA RTX 2070 Super (8 GB VRAM) |
-| OS | Windows 11 Pro — **migrating to Ubuntu Server 24.04 LTS** |
-| NIC | Realtek 2.5GbE (wired) |
-| SSH | `ssh john@192.168.10.TBD` (post-migration) |
+| OS | Ubuntu Server 24.04 LTS |
+| NIC | Realtek 2.5GbE (enp7s0, wired) |
+| IP | 192.168.10.129/24 (static via Netplan) |
+| DNS | Pi-hole (192.168.10.150) + 8.8.8.8 fallback |
+| SSH | `ssh holygrail` or `ssh john@192.168.10.129` (key-only) |
 
 ### Storage
 
-| Disk | Size | Free | Format | Description |
+| Disk | Size | Used | Format | Description |
 |------|------|------|--------|-------------|
-| NVMe SSD | 1 TB | ~584 GB | NTFS → ext4 | OS + Docker volumes |
+| NVMe SSD | 98 GB (LVM) | ~12 GB | ext4 | OS + Docker volumes |
+| NVMe Boot | 2.0 GB | 104 MB | ext4 | /boot |
+| EFI | 1.1 GB | 6.2 MB | FAT32 | /boot/efi |
 
-### Planned Services (post-migration)
+### Deployed Services
 
-| Service | Port | Description |
-|---------|------|-------------|
-| Portainer | 9443 | Container management UI |
-| Plex | 32400 | Media server (NVENC hardware transcoding) |
-| Ollama | 11434 | Local LLM API (GPU-accelerated) |
-| Network Advisor | TBD | AI-powered network dashboard |
-| Grafana | 3000 | Monitoring dashboards |
-| InfluxDB | 8086 | Time-series metrics |
-| Smokeping | TBD | Latency monitoring |
-| Traefik | 80/443 | Reverse proxy |
+| Service | Port | Status | Description |
+|---------|------|--------|-------------|
+| Docker Engine | — | Running | Container runtime v29.4.0 + Compose v5.1.1 |
+| NVIDIA Driver | — | Loaded | Driver 570.211.01, CUDA 12.8 |
+| NVIDIA Container Toolkit | — | Configured | GPU passthrough into containers |
+| Portainer CE | 9443 (HTTPS) | Running | Container management UI (UFW: LAN only) |
+| UFW Firewall | — | Active | SSH (22) + Portainer (9443 from LAN) |
 
-### Migration Status
+### Planned Services (future phases)
 
-**Current:** Windows 11 Pro (not yet migrated)
-**Target:** Ubuntu Server 24.04 LTS — see [docs/PROJECT-PLAN.md] Phase 1
+| Service | Port | Phase | Description |
+|---------|------|-------|-------------|
+| Plex | 32400 | Phase 2 | Media server (NVENC hardware transcoding) |
+| Ollama | 11434 | Phase 3 | Local LLM API (GPU-accelerated) |
+| Network Advisor | TBD | Phase 4 | AI-powered network dashboard |
+| Grafana | 3000 | Phase 8 | Monitoring dashboards |
+| InfluxDB | 8086 | Phase 8 | Time-series metrics |
+| Traefik | 80/443 | Phase 2 | Reverse proxy |
 
 ---
 

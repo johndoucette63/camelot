@@ -1,6 +1,6 @@
 #!/bin/bash
-# Remote updater for Raspberry Pi devices
-# Run from Mac: bash scripts/pi-update.sh [torrentbox|nas|mediaserver|all] [--os|--docker|--both]
+# Remote updater for all Camelot devices
+# Run from Mac: bash scripts/pi-update.sh [holygrail|torrentbox|nas|mediaserver|all] [--os|--docker|--both]
 
 set -euo pipefail
 
@@ -147,6 +147,7 @@ update_docker() {
 
 # Device definitions
 declare -A HOSTS=(
+    [holygrail]="HOLYGRAIL|192.168.10.129|john"
     [torrentbox]="Torrentbox|192.168.10.141|john"
     [nas]="NAS|192.168.10.105|pi"
     [mediaserver]="Media Server|192.168.10.150|pi"
@@ -155,7 +156,7 @@ declare -A HOSTS=(
 usage() {
     echo "Usage: $0 [target] [mode]"
     echo ""
-    echo "Targets:  all, torrentbox, nas, mediaserver"
+    echo "Targets:  all, holygrail, torrentbox, nas, mediaserver"
     echo "Modes:    --os      OS packages only (apt upgrade)"
     echo "          --docker  Docker images only"
     echo "          --both    OS + Docker (default)"
@@ -199,7 +200,7 @@ esac
 
 echo -e "${BOLD}${CYAN}"
 echo "  ┌──────────────────────────────────┐"
-echo "  │   Pi Infrastructure Updater      │"
+echo "  │   Camelot Infrastructure Updater  │"
 echo "  │   $(date '+%Y-%m-%d %H:%M:%S')          │"
 echo "  │   Mode: ${mode}                       │"
 echo "  └──────────────────────────────────┘"
@@ -207,11 +208,11 @@ echo -e "${NC}"
 
 case "$target" in
     all)
-        for key in torrentbox nas mediaserver; do
+        for key in holygrail torrentbox nas mediaserver; do
             run_updates "${HOSTS[$key]}" "$mode"
         done
         ;;
-    torrentbox|nas|mediaserver)
+    holygrail|torrentbox|nas|mediaserver)
         run_updates "${HOSTS[$target]}" "$mode"
         ;;
     *)

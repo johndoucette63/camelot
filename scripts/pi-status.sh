@@ -1,6 +1,6 @@
 #!/bin/bash
-# Remote status checker for all Raspberry Pi devices
-# Run from Mac: bash scripts/pi-status.sh [torrentbox|nas|mediaserver|all]
+# Remote status checker for all Camelot devices
+# Run from Mac: bash scripts/pi-status.sh [holygrail|torrentbox|nas|mediaserver|all]
 
 set -euo pipefail
 
@@ -14,6 +14,7 @@ NC='\033[0m'
 
 # Device definitions: name|host|user
 DEVICES=(
+    "HOLYGRAIL|192.168.10.129|john"
     "Torrentbox|192.168.10.141|john"
     "NAS|192.168.10.105|pi"
     "Media Server|192.168.10.150|pi"
@@ -57,7 +58,7 @@ check_host() {
         fi
 
         echo "::MEMORY::"
-        free -h | awk "/^Mem:/ {printf \"%s / %s (%s used)\", \$3, \$2, \$3}"
+        free -h | awk "/^Mem:/ {printf \"%s / %s (%s used)\n\", \$3, \$2, \$3}"
 
         echo "::DISK::"
         df -h --output=source,size,used,avail,pcent,target 2>/dev/null | grep -vE "^Filesystem|tmpfs|udev|overlay" | head -10
@@ -71,6 +72,13 @@ check_host() {
 
         echo "::MOUNTS::"
         mount | grep cifs 2>/dev/null || echo "No SMB mounts"
+
+        echo "::GPU::"
+        if command -v nvidia-smi &>/dev/null; then
+            nvidia-smi --query-gpu=name,temperature.gpu,memory.used,memory.total,utilization.gpu --format=csv,noheader,nounits 2>/dev/null || echo "N/A"
+        else
+            echo "N/A"
+        fi
 
         echo "::UPDATES::"
         if command -v apt &>/dev/null; then
@@ -97,6 +105,7 @@ check_host() {
             "::CPU_TEMP::") section="temp"; continue ;;
             "::MEMORY::")   section="memory"; continue ;;
             "::DISK::")     section="disk"; continue ;;
+            "::GPU::")      section="gpu"; continue ;;
             "::DOCKER::")   section="docker"; continue ;;
             "::MOUNTS::")   section="mounts"; continue ;;
             "::UPDATES::")  section="updates"; continue ;;
@@ -112,18 +121,44 @@ check_host() {
                 echo -e "  OS: ${line}"
                 ;;
             temp)
-                local temp_num
-                temp_num=$(echo "$line" | grep -oE '[0-9.]+' | head -1)
-                if [ -n "$temp_num" ] && [ "$line" != "N/A" ]; then
-                    if (( $(echo "$temp_num > 70" | bc -l 2>/dev/null || echo 0) )); then
-                        echo -e "  CPU Temp: ${RED}${line}${NC}"
-                    elif (( $(echo "$temp_num > 55" | bc -l 2>/dev/null || echo 0) )); then
-                        echo -e "  CPU Temp: ${YELLOW}${line}${NC}"
-                    else
-                        echo -e "  CPU Temp: ${GREEN}${line}${NC}"
-                    fi
+                if [ "$line" = "N/A" ]; then
+                    echo -e "  CPU Temp: N/A"
                 else
-                    echo -e "  CPU Temp: ${line}"
+                    local temp_num
+                    temp_num=$(echo "$line" | grep -oE '[0-9.]+' | head -1 || true)
+                    if [ -n "$temp_num" ]; then
+                        if [ "$(echo "$temp_num > 70" | bc -l 2>/dev/null)" = "1" ]; then
+                            echo -e "  CPU Temp: ${RED}${line}${NC}"
+                        elif [ "$(echo "$temp_num > 55" | bc -l 2>/dev/null)" = "1" ]; then
+                            echo -e "  CPU Temp: ${YELLOW}${line}${NC}"
+                        else
+                            echo -e "  CPU Temp: ${GREEN}${line}${NC}"
+                        fi
+                    else
+                        echo -e "  CPU Temp: ${line}"
+                    fi
+                fi
+                ;;
+            gpu)
+                if [ "$line" != "N/A" ]; then
+                    # nvidia-smi CSV format: "name, temp, mem_used, mem_total, util"
+                    local gpu_name gpu_temp gpu_mem_used gpu_mem_total gpu_util
+                    gpu_name=$(echo "$line" | cut -d',' -f1 | xargs)
+                    gpu_temp=$(echo "$line" | cut -d',' -f2 | xargs)
+                    gpu_mem_used=$(echo "$line" | cut -d',' -f3 | xargs)
+                    gpu_mem_total=$(echo "$line" | cut -d',' -f4 | xargs)
+                    gpu_util=$(echo "$line" | cut -d',' -f5 | xargs)
+                    # Color-code GPU temp: green <60, yellow 60-80, red >80
+                    local gpu_temp_color="${GREEN}"
+                    if [ -n "$gpu_temp" ] && [ "$gpu_temp" -gt 80 ] 2>/dev/null; then
+                        gpu_temp_color="${RED}"
+                    elif [ -n "$gpu_temp" ] && [ "$gpu_temp" -gt 60 ] 2>/dev/null; then
+                        gpu_temp_color="${YELLOW}"
+                    fi
+                    echo -e "  GPU: ${CYAN}${gpu_name}${NC}"
+                    echo -e "  GPU Temp: ${gpu_temp_color}${gpu_temp}°C${NC}"
+                    echo -e "  GPU Memory: ${gpu_mem_used}MiB / ${gpu_mem_total}MiB"
+                    echo -e "  GPU Util: ${gpu_util}%"
                 fi
                 ;;
             memory)
@@ -186,7 +221,7 @@ target="${1:-all}"
 
 echo -e "${BOLD}${CYAN}"
 echo "  ┌──────────────────────────────────┐"
-echo "  │   Pi Infrastructure Status       │"
+echo "  │   Camelot Infrastructure Status   │"
 echo "  │   $(date '+%Y-%m-%d %H:%M:%S')          │"
 echo "  └──────────────────────────────────┘"
 echo -e "${NC}"
@@ -198,6 +233,9 @@ case "$target" in
             check_host "$name" "$host" "$user"
         done
         ;;
+    holygrail)
+        check_host "HOLYGRAIL" "192.168.10.129" "john"
+        ;;
     torrentbox)
         check_host "Torrentbox" "192.168.10.141" "john"
         ;;
@@ -208,7 +246,7 @@ case "$target" in
         check_host "Media Server" "192.168.10.150" "pi"
         ;;
     *)
-        echo "Usage: $0 [all|torrentbox|nas|mediaserver]"
+        echo "Usage: $0 [all|holygrail|torrentbox|nas|mediaserver]"
         exit 1
         ;;
 esac
