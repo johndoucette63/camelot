@@ -1,0 +1,42 @@
+# Plex Media Server on HOLYGRAIL
+# GPU-accelerated transcoding via RTX 2070 Super (NVENC)
+# Deployment:
+#   1. scp this file to HOLYGRAIL at ~/docker/plex/
+#   2. Create .env file with: PLEX_CLAIM=<token from https://www.plex.tv/claim>
+#      Optional overrides: PUID (default 1000), PGID (default 1000), TZ (default America/Denver)
+#   3. docker compose up -d (within 4 minutes of generating claim token)
+
+services:
+  plex:
+    image: lscr.io/linuxserver/plex:latest
+    container_name: plex
+    runtime: nvidia
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - TZ=${TZ:-America/Denver}
+      - VERSION=docker
+      - PLEX_CLAIM=${PLEX_CLAIM:-}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    volumes:
+      - plex_config:/config
+      - /tmp/plex-transcode:/transcode
+      - /mnt/nas/movies:/movies:ro
+      - /mnt/nas/tv:/tv:ro
+      - /mnt/nas/music:/music:ro
+      - /mnt/usb1/Movies:/usb1-movies:ro
+      - /mnt/usb1/TV:/usb1-tv:ro
+      - /mnt/usb2/TV:/usb2-tv:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:32400/identity"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  plex_config:
+    name: plex_config

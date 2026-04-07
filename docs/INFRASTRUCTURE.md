@@ -5,13 +5,13 @@
 ```mermaid
 graph TB
     subgraph network["192.168.10.0/24 — Camelot Network"]
-        holygrail["<b>HOLYGRAIL</b><br/>192.168.10.129<br/><i>Ryzen 7800X3D · 32GB DDR5 · RTX 2070S</i><br/>Ubuntu Server 24.04 LTS<br/><br/>Docker 29.4.0 · NVIDIA 570<br/>Portainer :9443<br/><i>Planned: Plex · Ollama · Traefik</i>"]
+        holygrail["<b>HOLYGRAIL</b><br/>192.168.10.129<br/><i>Ryzen 7800X3D · 32GB DDR5 · RTX 2070S</i><br/>Ubuntu Server 24.04 LTS<br/><br/>Docker 29.4.0 · NVIDIA 570<br/>Portainer :9443 · Plex :32400<br/><i>Planned: Ollama · Traefik</i>"]
 
         torrentbox["<b>TORRENTBOX</b><br/>192.168.10.141<br/><i>Pi 5 (8GB) · Debian Trixie</i><br/><br/>Deluge + VPN · Sonarr · Radarr<br/>Prowlarr · Lidarr<br/>LazyLibrarian · FlareSolverr"]
 
         nas["<b>NAS</b><br/>192.168.10.105<br/><i>Pi 4 (4GB) · OpenMediaVault</i><br/><br/>Samba/SMB"]
 
-        mediaserver["<b>MEDIA SERVER</b><br/>192.168.10.150<br/><i>Pi 5 (8GB) · Debian Bookworm</i><br/><br/>Plex* · Emby* · Pi-hole DNS<br/><i>* migrating to HOLYGRAIL</i>"]
+        mediaserver["<b>MEDIA SERVER</b><br/>192.168.10.150<br/><i>Pi 5 (8GB) · Debian Bookworm</i><br/><br/>Pi-hole DNS<br/><i>Plex + Emby migrated to HOLYGRAIL</i>"]
 
         mac["<b>MAC WORKSTATION</b><br/>192.168.10.145<br/><i>MacBook Pro M4 Pro · 48GB</i><br/><br/>Dev / Management only"]
 
@@ -66,13 +66,50 @@ graph TB
 | NVIDIA Driver | — | Loaded | Driver 570.211.01, CUDA 12.8 |
 | NVIDIA Container Toolkit | — | Configured | GPU passthrough into containers |
 | Portainer CE | 9443 (HTTPS) | Running | Container management UI (UFW: LAN only) |
-| UFW Firewall | — | Active | SSH (22) + Portainer (9443 from LAN) |
+| UFW Firewall | — | Active | SSH (22) + Portainer (9443) + Plex (32400) from LAN |
+| Plex | 32400 | Running | Media server with NVENC hardware transcoding (linuxserver/plex) |
+
+### NAS Media Mounts
+
+```
+/mnt/nas/movies      → //192.168.10.105/Movies   (cifs, systemd automount)
+/mnt/nas/tv          → //192.168.10.105/TV        (cifs, systemd automount)
+/mnt/nas/music       → //192.168.10.105/Music     (cifs, systemd automount)
+```
+
+Credentials: `/etc/samba/nas-creds` (mode 600)
+
+### Plex Docker Compose
+
+Location: `~/docker/plex/docker-compose.yml` (source: `infrastructure/holygrail/plex/docker-compose.yml`)
+
+```yaml
+services:
+  plex:
+    image: lscr.io/linuxserver/plex:latest
+    container_name: plex
+    runtime: nvidia
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Denver
+      - VERSION=docker
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    volumes:
+      - plex_config:/config
+      - /tmp/plex-transcode:/transcode
+      - /mnt/nas/movies:/movies:ro
+      - /mnt/nas/tv:/tv:ro
+      - /mnt/nas/music:/music:ro
+```
 
 ### Planned Services (future phases)
 
 | Service | Port | Phase | Description |
-|---------|------|-------|-------------|
-| Plex | 32400 | Phase 2 | Media server (NVENC hardware transcoding) |
+| ------- | ---- | ----- | ----------- |
 | Ollama | 11434 | Phase 3 | Local LLM API (GPU-accelerated) |
 | Network Advisor | TBD | Phase 4 | AI-powered network dashboard |
 | Grafana | 3000 | Phase 8 | Monitoring dashboards |
@@ -336,7 +373,10 @@ sudo systemctl restart openvpn@pia
 
 ---
 
-## Media Server (192.168.10.150)
+## Media Server (192.168.10.150) — Pi-hole DNS Only
+
+> **Migration note (2026-04-07)**: Plex and Emby have been migrated to HOLYGRAIL (F2.1).
+> This Pi now serves only as a Pi-hole DNS server.
 
 ### System Info
 
@@ -346,21 +386,23 @@ sudo systemctl restart openvpn@pia
 | Hardware | Raspberry Pi 5 (8GB RAM) |
 | OS | Debian GNU/Linux 12 (Bookworm) |
 | SSH | `ssh pi@192.168.10.150` |
+| Role | Pi-hole DNS (formerly media server) |
 
 ### Storage
 
 | Disk | Size | Format | Mount Point | Description |
 |------|------|--------|-------------|-------------|
 | NVMe SSD | 465GB | ext4 | / | OS drive |
-| USB Drive 1 | 932GB | ntfs | /mnt/usb2 | Local media |
-| USB Drive 2 | 932GB | ext4 | /mnt/media | Local media |
+| USB Drive 1 | 932GB | ntfs | /mnt/usb2 | Local media (unused after migration) |
+| USB Drive 2 | 932GB | ext4 | /mnt/media | Local media (unused after migration) |
 
 ### Services
 
-| Service | Port | Type |
-|---------|------|------|
-| Plex | 32400 | systemd |
-| Emby | 8096 (HTTP), 8920 (HTTPS) | Docker |
+| Service | Port | Status |
+| ------- | ---- | ------ |
+| Pi-hole | 53 (DNS), 80 (admin) | Running |
+| ~~Plex~~ | ~~32400~~ | Stopped — migrated to HOLYGRAIL |
+| ~~Emby~~ | ~~8096~~ | Stopped — retired (see below) |
 
 ### NAS & Torrentbox Mounts
 
@@ -370,7 +412,14 @@ sudo systemctl restart openvpn@pia
 /mnt/torrentbox      → //192.168.10.141/Media
 ```
 
-### Emby Docker
+### Emby Docker (RETIRED)
+
+> **Retired 2026-04-07**: Emby has been decommissioned. Plex on HOLYGRAIL with NVENC
+> hardware transcoding replaces both Plex and Emby on this Pi. Emby added no unique
+> value over Plex and would compete for GPU/RAM with Plex and Ollama on HOLYGRAIL.
+
+<details>
+<summary>Previous Emby configuration (archived)</summary>
 
 ```bash
 docker run -d \
@@ -389,6 +438,8 @@ docker run -d \
   -v /mnt/torrentbox/TV:/data/torrentbox-tv \
   lscr.io/linuxserver/emby:latest
 ```
+
+</details>
 
 ---
 
@@ -502,7 +553,7 @@ flowchart TD
     C --> D["4. Downloaded to /downloads/incomplete"]
     D --> E["5. Moved to /downloads/complete<br/><i>(seeding stops, torrent removed)</i>"]
     E --> F["6. Sonarr/Radarr imports and renames<br/>TV → /mnt/nas/tv<br/>Movies → /mnt/nas/movies"]
-    F --> G["7. Plex / Emby auto-detect new media"]
+    F --> G["7. Plex on HOLYGRAIL auto-detects new media<br/><i>(Sonarr/Radarr notify via Connect)</i>"]
 ```
 
 ---
@@ -517,8 +568,7 @@ flowchart TD
 | Prowlarr | http://192.168.10.141:9696 |
 | Lidarr | http://192.168.10.141:8686 |
 | LazyLibrarian | http://192.168.10.141:5299 |
-| Plex | http://192.168.10.150:32400/web |
-| Emby | http://192.168.10.150:8096 |
+| Plex | http://192.168.10.129:32400/web |
 | OpenMediaVault | http://192.168.10.105 |
 | Pi-hole | http://192.168.10.105/admin |
 

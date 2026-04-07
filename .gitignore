@@ -12,6 +12,7 @@ nul
 # Environment and secrets
 .env
 .env.*
+!.env.example
 
 # Claude Code local settings
 .claude/

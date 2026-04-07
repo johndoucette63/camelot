@@ -11,7 +11,7 @@ Unified home infrastructure platform. Raspberry Pis handle dedicated edge worklo
 | HOLYGRAIL | 192.168.10.129 | Ryzen 7800X3D / 32GB / RTX 2070S — central server | `ssh john@holygrail` |
 | Torrentbox | 192.168.10.141 | Pi 5 — Deluge + *arr apps + VPN | `ssh john@192.168.10.141` |
 | NAS | 192.168.10.105 | Pi 4 — OpenMediaVault, SMB shares | `ssh pi@192.168.10.105` |
-| Media Server | 192.168.10.150 | Pi 5 — Plex + Emby + Pi-hole DNS (migrating to HOLYGRAIL) | `ssh pi@192.168.10.150` |
+| Pi-hole DNS | 192.168.10.150 | Pi 5 — Pi-hole DNS (Plex + Emby migrated to HOLYGRAIL) | `ssh pi@192.168.10.150` |
 | Mac Workstation | 192.168.10.145 | MacBook Pro M4 Pro — dev/management only | N/A |
 
 The Mac is **not a service host**. HOLYGRAIL is the heavy-lifting server. Pis handle dedicated edge tasks.
@@ -42,7 +42,7 @@ The Mac is **not a service host**. HOLYGRAIL is the heavy-lifting server. Pis ha
 - Docker Compose: ARM64 for Pis, x86_64 for HOLYGRAIL
 - Scripts should be cross-platform where possible (Linux + macOS)
 - Torrent flow: Prowlarr -> Deluge (VPN) -> Sonarr/Radarr (rename) -> NAS -> Plex
-- HOLYGRAIL is still on Windows 11 — Ubuntu migration is Phase 1 (see PROJECT-PLAN.md)
+- HOLYGRAIL runs Ubuntu 24.04 LTS (Phase 1 complete)
 
 ## Project Phases
 
@@ -51,8 +51,8 @@ See `docs/PROJECT-PLAN.md` for the full plan. Summary:
 | Phase | Status | Description |
 |-------|--------|-------------|
 | 0 — Foundation | Done | Docs, scripts, repo structure |
-| 1 — HOLYGRAIL Setup | Next | Ubuntu install, Docker, NVIDIA, Portainer |
-| 2 — Service Migration | Blocked on 1 | Plex + monitoring to HOLYGRAIL |
+| 1 — HOLYGRAIL Setup | Done | Ubuntu install, Docker, NVIDIA, Portainer |
+| 2 — Service Migration | In Progress | Plex migrated; monitoring to HOLYGRAIL |
 | 3 — Ollama & AI | Blocked on 1 | Local LLM with GPU acceleration |
 | 4 — Network Advisor | Blocked on 1,3 | FastAPI + React advisor app |
 | 5 — Torrent Expansion | Independent | Paid indexers, quality profiles |
@@ -66,7 +66,7 @@ See `docs/PROJECT-PLAN.md` for the full plan. Summary:
 # SSH into devices (using ssh-config aliases)
 ssh torrentbox   # or: ssh john@192.168.10.141
 ssh nas          # or: ssh pi@192.168.10.105
-ssh mediaserver  # or: ssh pi@192.168.10.150
+ssh mediaserver  # or: ssh pi@192.168.10.150 (Pi-hole DNS)
 
 # Check status of all Pis
 bash scripts/pi-status.sh              # All devices
@@ -97,6 +97,8 @@ bash scripts/benchmark-drives.sh
 - Bash (POSIX-compatible shell scripts) + NVIDIA driver (560-server), Docker Engine, Docker Compose v2, nvidia-container-toolkit, Portainer CE (002-docker-gpu-infra)
 - Docker volumes for Portainer data; no application databases (002-docker-gpu-infra)
 - Bash (POSIX-compatible shell scripts), Markdown documentation + Existing pi-status.sh/pi-update.sh scripts, OpenSSH, nvidia-smi, Docker CLI (003-network-integration)
+- Bash (POSIX-compatible shell scripts) + Docker Compose v2, linuxserver/plex image, nvidia-container-toolkit, cifs-utils (004-plex-migration)
+- NAS SMB shares (media), local Docker volume (Plex config/database), local path (transcode cache) (004-plex-migration)
 
 ## Recent Changes
 - 001-ubuntu-migration: Added Bash (POSIX-compatible shell scripts) + Ubuntu Server 24.04 LTS, OpenSSH, UFW, Netplan 1.0

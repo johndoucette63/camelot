@@ -17,7 +17,7 @@ DEVICES=(
     "HOLYGRAIL|192.168.10.129|john"
     "Torrentbox|192.168.10.141|john"
     "NAS|192.168.10.105|pi"
-    "Media Server|192.168.10.150|pi"
+    "Pi-hole DNS|192.168.10.150|pi"
 )
 
 SSH_OPTS="-o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new -o BatchMode=yes"
@@ -242,11 +242,11 @@ case "$target" in
     nas)
         check_host "NAS" "192.168.10.105" "pi"
         ;;
-    mediaserver|media)
-        check_host "Media Server" "192.168.10.150" "pi"
+    mediaserver|media|pihole)
+        check_host "Pi-hole DNS" "192.168.10.150" "pi"
         ;;
     *)
-        echo "Usage: $0 [all|holygrail|torrentbox|nas|mediaserver]"
+        echo "Usage: $0 [all|holygrail|torrentbox|nas|mediaserver|pihole]"
         exit 1
         ;;
 esac
