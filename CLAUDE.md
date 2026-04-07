@@ -8,10 +8,10 @@ Unified home infrastructure platform. Raspberry Pis handle dedicated edge worklo
 
 | Device | IP | Role | SSH |
 |--------|-----|------|-----|
-| HOLYGRAIL | 192.168.10.TBD | Ryzen 7800X3D / 32GB / RTX 2070S — central server | `ssh john@holygrail` |
+| HOLYGRAIL | 192.168.10.129 | Ryzen 7800X3D / 32GB / RTX 2070S — central server | `ssh john@holygrail` |
 | Torrentbox | 192.168.10.141 | Pi 5 — Deluge + *arr apps + VPN | `ssh john@192.168.10.141` |
-| NAS | 192.168.10.105 | Pi 4 — OpenMediaVault, SMB shares, Pi-hole | `ssh pi@192.168.10.105` |
-| Media Server | 192.168.10.150 | Pi 5 — Plex + Emby (migrating to HOLYGRAIL) | `ssh pi@192.168.10.150` |
+| NAS | 192.168.10.105 | Pi 4 — OpenMediaVault, SMB shares | `ssh pi@192.168.10.105` |
+| Media Server | 192.168.10.150 | Pi 5 — Plex + Emby + Pi-hole DNS (migrating to HOLYGRAIL) | `ssh pi@192.168.10.150` |
 | Mac Workstation | 192.168.10.145 | MacBook Pro M4 Pro — dev/management only | N/A |
 
 The Mac is **not a service host**. HOLYGRAIL is the heavy-lifting server. Pis handle dedicated edge tasks.
@@ -90,3 +90,10 @@ ssh torrentbox "docker exec deluge curl -s ifconfig.me"
 # Run benchmarks
 bash scripts/benchmark-drives.sh
 ```
+
+## Active Technologies
+- Bash (POSIX-compatible shell scripts) + Ubuntu Server 24.04 LTS, OpenSSH, UFW, Netplan 1.0 (001-ubuntu-migration)
+- N/A (OS-level disk, no application storage) (001-ubuntu-migration)
+
+## Recent Changes
+- 001-ubuntu-migration: Added Bash (POSIX-compatible shell scripts) + Ubuntu Server 24.04 LTS, OpenSSH, UFW, Netplan 1.0

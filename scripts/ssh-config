@@ -1,5 +1,10 @@
-# Torrentbox Infrastructure SSH Config
-# Append to ~/.ssh/config or include via: Include ~/Code/torrentbox/scripts/ssh-config
+# Camelot Infrastructure SSH Config
+# Append to ~/.ssh/config or include via: Include ~/Code/camelot/scripts/ssh-config
+
+Host holygrail
+    HostName 192.168.10.129
+    User john
+    IdentityFile ~/.ssh/id_ed25519
 
 Host torrentbox
     HostName 192.168.10.141
@@ -16,8 +21,8 @@ Host mediaserver
     User pi
     IdentityFile ~/.ssh/id_ed25519
 
-# Shared defaults for all Pi hosts
-Host torrentbox nas mediaserver
+# Shared defaults for all managed hosts
+Host holygrail torrentbox nas mediaserver
     StrictHostKeyChecking accept-new
     ServerAliveInterval 60
     ServerAliveCountMax 3
