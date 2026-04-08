@@ -81,7 +81,7 @@ graph TB
 | `smokeping.holygrail` | Smokeping UI | http://192.168.10.129:8081 |
 | `plex.holygrail` | Plex Web | http://192.168.10.129:32400/web |
 | `portainer.holygrail` | Portainer CE | https://192.168.10.129:9443 |
-| N/A | Traefik dashboard | http://192.168.10.129:8080 (direct only) |
+| `traefik.holygrail` | Traefik dashboard | http://192.168.10.129:8080 |
 
 Mac setup: `sudo bash scripts/setup-holygrail-dns.sh` (adds `/etc/hosts` entries)
 

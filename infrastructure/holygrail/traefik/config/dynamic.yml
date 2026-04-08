@@ -13,15 +13,10 @@ http:
       rule: "Host(`traefik.holygrail`)"
       entryPoints:
         - web
-      service: traefik-dashboard
+      service: api@internal
 
   services:
     plex:
       loadBalancer:
         servers:
           - url: "http://192.168.10.129:32400"
-
-    traefik-dashboard:
-      loadBalancer:
-        servers:
-          - url: "http://192.168.10.129:8080"
