@@ -1,6 +1,20 @@
 <!--
   Sync Impact Report
   ==================
+  Version change: 1.0.0 → 1.1.0
+  Modified principles:
+    - V. Observability — expanded with AI-enhanced monitoring strategy
+      (alert summarization, anomaly explanation, log triage via Ollama).
+      Codifies that monitoring pipeline must precede AI features, and
+      LLM analysis must degrade gracefully.
+  Modified sections:
+    - Technology Stack — Ollama notes expanded to reflect dual role
+      (LLM inference + monitoring intelligence layer).
+  Removed sections: None
+  Templates requiring updates: None
+  Follow-up TODOs: None
+
+  --- Previous ---
   Version change: 0.0.0 (template) → 1.0.0
   Modified principles: N/A (initial ratification)
   Added sections:
@@ -96,6 +110,13 @@ If it runs, it MUST be observable. Silent failures are unacceptable.
   or InfluxDB write points.
 - Alerts for critical failures (service down, disk full, device offline)
   MUST be surfaced in the Network Advisor dashboard.
+- **AI-enhanced monitoring**: Ollama serves as an intelligence layer on
+  top of the monitoring pipeline — summarizing correlated alerts into
+  narratives, explaining anomalies by cross-referencing time-series data,
+  and triaging centralized logs. Rule-based alerts remain the reliable
+  foundation; LLM analysis is additive and MUST degrade gracefully if
+  Ollama is unavailable. The monitoring data pipeline (Grafana, InfluxDB,
+  Smokeping, Loki) MUST be in place before AI features can be useful.
 
 ## Technology Stack
 
@@ -105,7 +126,7 @@ If it runs, it MUST be observable. Silent failures are unacceptable.
 | Backend services | FastAPI (Python) | Async, OpenAPI docs auto-generated |
 | Frontend | React + TypeScript + Tailwind CSS | Vite for build tooling |
 | Database | PostgreSQL | Only where persistence is needed |
-| LLM inference | Ollama | GPU-accelerated via NVIDIA runtime |
+| LLM inference | Ollama | GPU-accelerated via NVIDIA runtime; monitoring intelligence layer (alert summarization, anomaly explanation, log triage) + private LAN AI endpoint |
 | Infrastructure | Docker Compose | One Compose file per service stack |
 | Monitoring | Grafana + InfluxDB + Smokeping | Time-series metrics and latency |
 | Reverse proxy | Traefik | Clean LAN URLs for all services |
@@ -147,4 +168,4 @@ It supersedes ad-hoc choices made in individual specs or plans.
   violation is necessary, it MUST be justified in the Complexity Tracking
   table.
 
-**Version**: 1.0.0 | **Ratified**: 2026-04-06 | **Last Amended**: 2026-04-06
+**Version**: 1.1.0 | **Ratified**: 2026-04-06 | **Last Amended**: 2026-04-08
