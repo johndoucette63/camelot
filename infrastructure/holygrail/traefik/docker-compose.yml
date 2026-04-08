@@ -1,0 +1,53 @@
+# Traefik Reverse Proxy — HOLYGRAIL
+# Hostname-based routing for all HOLYGRAIL services
+#
+# Prerequisites:
+#   1. docker network create holygrail-proxy
+#   2. cp .env.example .env
+#   3. docker compose up -d
+#
+# Services are discovered via:
+#   - Docker labels (bridge-network containers on holygrail-proxy)
+#   - File provider config/dynamic.yml (host-network services like Plex)
+
+networks:
+  holygrail-proxy:
+    external: true
+
+services:
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    restart: unless-stopped
+    networks:
+      - holygrail-proxy
+    ports:
+      - "80:80"
+      - "8080:8080"
+    environment:
+      - TZ=${TZ:-America/Denver}
+    command:
+      # Entrypoints
+      - --entrypoints.web.address=:80
+      # Docker provider — discover labeled containers on holygrail-proxy
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=holygrail-proxy
+      # File provider — static routes for host-network services (Plex)
+      - --providers.file.directory=/etc/traefik/config
+      - --providers.file.watch=true
+      # Dashboard
+      - --api.dashboard=true
+      - --api.insecure=true
+      # Health ping
+      - --ping=true
+      # Logging
+      - --log.level=${TRAEFIK_LOG_LEVEL:-ERROR}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./config:/etc/traefik/config:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

@@ -99,6 +99,9 @@ bash scripts/benchmark-drives.sh
 - Bash (POSIX-compatible shell scripts), Markdown documentation + Existing pi-status.sh/pi-update.sh scripts, OpenSSH, nvidia-smi, Docker CLI (003-network-integration)
 - Bash (POSIX-compatible shell scripts) + Docker Compose v2, linuxserver/plex image, nvidia-container-toolkit, cifs-utils (004-plex-migration)
 - NAS SMB shares (media), local Docker volume (Plex config/database), local path (transcode cache) (004-plex-migration)
+- Bash (POSIX shell scripts), Docker Compose YAML, Python 3.11+ (existing monitoring scripts) + Docker Compose v2, Traefik (latest), Grafana (latest), InfluxDB 1.8, Smokeping (linuxserver), Python 3.11 (005-monitoring-traefik-migration)
+- InfluxDB 1.8 (time-series in Docker volume), Grafana (Docker volume), Smokeping RRD (Docker volume) (005-monitoring-traefik-migration)
 
 ## Recent Changes
+- 005-monitoring-traefik-migration: Migrated Grafana/InfluxDB/Smokeping from Torrentbox to HOLYGRAIL, deployed Traefik reverse proxy with *.holygrail hostname routing
 - 001-ubuntu-migration: Added Bash (POSIX-compatible shell scripts) + Ubuntu Server 24.04 LTS, OpenSSH, UFW, Netplan 1.0

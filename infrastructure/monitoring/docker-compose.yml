@@ -1,7 +1,10 @@
-# Network Latency Monitor Stack for Torrentbox
-# Deploy with: docker compose up -d
-# Location: /home/john/docker/monitoring/
-# Note: Uses existing host InfluxDB service (port 8086)
+# ARCHIVED — Torrentbox Monitoring Stack
+# Status: Migrated to HOLYGRAIL (see infrastructure/holygrail/monitoring/)
+# This file is kept for reference only. Do not deploy.
+#
+# Original: Network Latency Monitor Stack for Torrentbox
+# Location was: /home/john/docker/monitoring/
+# Note: Used existing host InfluxDB service (port 8086)
 
 networks:
   monitoring:

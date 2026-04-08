@@ -68,6 +68,22 @@ graph TB
 | Portainer CE | 9443 (HTTPS) | Running | Container management UI (UFW: LAN only) |
 | UFW Firewall | — | Active | SSH (22) + Portainer (9443) + Plex (32400) from LAN |
 | Plex | 32400 | Running | Media server with NVENC hardware transcoding (linuxserver/plex) |
+| Traefik | 80 | Running | Reverse proxy — hostname routing for all services |
+| Grafana | 3000 | Running | Monitoring dashboards (network latency, speedtest, packet loss) |
+| InfluxDB | 8086 | Running | Time-series database (`network_metrics`) |
+| Smokeping | 8081 | Running | Continuous latency and packet loss monitoring |
+
+### Service Hostnames (via Traefik)
+
+| Hostname | Service | Fallback |
+|----------|---------|----------|
+| `grafana.holygrail` | Grafana dashboards | http://192.168.10.129:3000 |
+| `smokeping.holygrail` | Smokeping UI | http://192.168.10.129:8081 |
+| `plex.holygrail` | Plex Web | http://192.168.10.129:32400/web |
+| `portainer.holygrail` | Portainer CE | https://192.168.10.129:9443 |
+| N/A | Traefik dashboard | http://192.168.10.129:8080 (direct only) |
+
+Mac setup: `sudo bash scripts/setup-holygrail-dns.sh` (adds `/etc/hosts` entries)
 
 ### NAS Media Mounts
 
@@ -109,12 +125,9 @@ services:
 ### Planned Services (future phases)
 
 | Service | Port | Phase | Description |
-| ------- | ---- | ----- | ----------- |
+|---------|------|-------|-------------|
 | Ollama | 11434 | Phase 3 | Local LLM API (GPU-accelerated) |
 | Network Advisor | TBD | Phase 4 | AI-powered network dashboard |
-| Grafana | 3000 | Phase 8 | Monitoring dashboards |
-| InfluxDB | 8086 | Phase 8 | Time-series metrics |
-| Traefik | 80/443 | Phase 2 | Reverse proxy |
 
 ---
 

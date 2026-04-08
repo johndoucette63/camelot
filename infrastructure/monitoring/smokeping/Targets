@@ -3,7 +3,7 @@
 probe = FPing
 
 menu = Top
-title = Network Latency Monitor - Torrentbox
+title = Network Latency Monitor - HOLYGRAIL
 remark = Continuous latency monitoring to diagnose network slowdowns
 
 #----------------------------------------------------------------------
@@ -24,15 +24,20 @@ menu = NAS Server
 title = NAS/Pi-hole (192.168.10.105)
 host = 192.168.10.105
 
-++ Plex
-menu = Plex/Emby Server
-title = Media Server (192.168.10.150)
-host = 192.168.10.150
+++ HOLYGRAIL
+menu = HOLYGRAIL Server
+title = Central Server (192.168.10.129)
+host = 192.168.10.129
 
 ++ Torrentbox
 menu = Torrentbox
-title = This Server (192.168.10.141)
+title = Torrentbox Pi (192.168.10.141)
 host = 192.168.10.141
+
+++ PiholeDNS
+menu = Pi-hole DNS
+title = Pi-hole DNS Server (192.168.10.150)
+host = 192.168.10.150
 
 #----------------------------------------------------------------------
 # SLOW DEVICES - These showed high latency during scan

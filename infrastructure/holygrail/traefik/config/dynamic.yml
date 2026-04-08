@@ -1,0 +1,27 @@
+# Traefik File Provider — Static routes for host-network services
+# These services can't use Docker labels because they run in host network mode.
+
+http:
+  routers:
+    plex:
+      rule: "Host(`plex.holygrail`)"
+      entryPoints:
+        - web
+      service: plex
+
+    traefik-dashboard:
+      rule: "Host(`traefik.holygrail`)"
+      entryPoints:
+        - web
+      service: traefik-dashboard
+
+  services:
+    plex:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.10.129:32400"
+
+    traefik-dashboard:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.10.129:8080"

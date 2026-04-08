@@ -4,10 +4,10 @@ datasources:
   - name: InfluxDB
     type: influxdb
     access: proxy
-    url: http://host.docker.internal:8086
+    url: http://influxdb:8086
     database: network_metrics
-    user: grafana
+    user: $INFLUXDB_USER
     secureJsonData:
-      password: grafanapass
+      password: $INFLUXDB_USER_PASSWORD
     isDefault: true
     editable: false
