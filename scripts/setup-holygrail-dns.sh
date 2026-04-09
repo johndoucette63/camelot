@@ -15,6 +15,7 @@ HOSTNAMES=(
     "portainer.holygrail"
     "traefik.holygrail"
     "ollama.holygrail"
+    "advisor.holygrail"
 )
 
 # Check for root

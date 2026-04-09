@@ -103,6 +103,8 @@ bash scripts/benchmark-drives.sh
 - InfluxDB 1.8 (time-series in Docker volume), Grafana (Docker volume), Smokeping RRD (Docker volume) (005-monitoring-traefik-migration)
 - Bash (POSIX shell scripts), Docker Compose YAML + Docker Compose v2, Ollama (latest), nvidia-container-toolkit, Traefik (existing) (006-ollama-gpu-deployment)
 - Docker volume for model persistence (ollama_data) (006-ollama-gpu-deployment)
+- Python 3.12+ (backend), TypeScript 5.x (frontend) + FastAPI, uvicorn, SQLAlchemy, asyncpg, psycopg2 (backend); React 18, Vite 5, Tailwind CSS 3 (frontend) (007-advisor-app-scaffold)
+- PostgreSQL 16 (Docker container, named volume) (007-advisor-app-scaffold)
 
 ## Recent Changes
 - 006-ollama-gpu-deployment: Deployed Ollama LLM with GPU acceleration on HOLYGRAIL, Llama 3.1 8B default model, ollama.holygrail hostname routing
