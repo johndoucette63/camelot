@@ -1,0 +1,49 @@
+# Ollama LLM Server — HOLYGRAIL
+# GPU-accelerated inference via RTX 2070 Super
+#
+# Prerequisites:
+#   1. docker network create holygrail-proxy (if not already created)
+#   2. cp .env.example .env
+#   3. docker compose up -d
+#   4. docker exec ollama ollama pull llama3.1:8b
+#   5. sudo ufw allow from 192.168.10.0/24 to any port 11434 comment 'Ollama LLM API'
+
+networks:
+  holygrail-proxy:
+    external: true
+
+volumes:
+  ollama_data:
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    networks:
+      - holygrail-proxy
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_HOST=${OLLAMA_HOST:-0.0.0.0}
+      - TZ=${TZ:-America/Denver}
+    volumes:
+      - ollama_data:/root/.ollama
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.ollama.rule=Host(`ollama.holygrail`)
+      - traefik.http.routers.ollama.entrypoints=web
+      - traefik.http.services.ollama.loadbalancer.server.port=11434
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s

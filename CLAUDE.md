@@ -101,7 +101,10 @@ bash scripts/benchmark-drives.sh
 - NAS SMB shares (media), local Docker volume (Plex config/database), local path (transcode cache) (004-plex-migration)
 - Bash (POSIX shell scripts), Docker Compose YAML, Python 3.11+ (existing monitoring scripts) + Docker Compose v2, Traefik (latest), Grafana (latest), InfluxDB 1.8, Smokeping (linuxserver), Python 3.11 (005-monitoring-traefik-migration)
 - InfluxDB 1.8 (time-series in Docker volume), Grafana (Docker volume), Smokeping RRD (Docker volume) (005-monitoring-traefik-migration)
+- Bash (POSIX shell scripts), Docker Compose YAML + Docker Compose v2, Ollama (latest), nvidia-container-toolkit, Traefik (existing) (006-ollama-gpu-deployment)
+- Docker volume for model persistence (ollama_data) (006-ollama-gpu-deployment)
 
 ## Recent Changes
+- 006-ollama-gpu-deployment: Deployed Ollama LLM with GPU acceleration on HOLYGRAIL, Llama 3.1 8B default model, ollama.holygrail hostname routing
 - 005-monitoring-traefik-migration: Migrated Grafana/InfluxDB/Smokeping from Torrentbox to HOLYGRAIL, deployed Traefik reverse proxy with *.holygrail hostname routing
 - 001-ubuntu-migration: Added Bash (POSIX-compatible shell scripts) + Ubuntu Server 24.04 LTS, OpenSSH, UFW, Netplan 1.0

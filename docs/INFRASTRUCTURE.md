@@ -72,6 +72,7 @@ graph TB
 | Grafana | 3000 | Running | Monitoring dashboards (network latency, speedtest, packet loss) |
 | InfluxDB | 8086 | Running | Time-series database (`network_metrics`) |
 | Smokeping | 8081 | Running | Continuous latency and packet loss monitoring |
+| Ollama | 11434 | Running | Local LLM inference (GPU-accelerated, Llama 3.1 8B) |
 
 ### Service Hostnames (via Traefik)
 
@@ -82,6 +83,7 @@ graph TB
 | `plex.holygrail` | Plex Web | http://192.168.10.129:32400/web |
 | `portainer.holygrail` | Portainer CE | https://192.168.10.129:9443 |
 | `traefik.holygrail` | Traefik dashboard | http://192.168.10.129:8080 |
+| `ollama.holygrail` | Ollama LLM API | http://192.168.10.129:11434 |
 
 Mac setup: `sudo bash scripts/setup-holygrail-dns.sh` (adds `/etc/hosts` entries)
 
@@ -126,7 +128,6 @@ services:
 
 | Service | Port | Phase | Description |
 |---------|------|-------|-------------|
-| Ollama | 11434 | Phase 3 | Local LLM API (GPU-accelerated) |
 | Network Advisor | TBD | Phase 4 | AI-powered network dashboard |
 
 ---

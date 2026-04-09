@@ -14,6 +14,7 @@ HOSTNAMES=(
     "plex.holygrail"
     "portainer.holygrail"
     "traefik.holygrail"
+    "ollama.holygrail"
 )
 
 # Check for root
