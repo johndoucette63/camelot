@@ -5,3 +5,5 @@ venv/
 tests/
 .env
 .git
+*.egg-info/
+dist/
