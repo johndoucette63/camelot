@@ -1,5 +1,6 @@
 import { Link, Route, Routes, useLocation } from "react-router-dom";
 import Home from "./pages/Home";
+import Chat from "./pages/Chat";
 import { Devices } from "./pages/Devices";
 import { Events } from "./pages/Events";
 import { Services } from "./pages/Services";
@@ -19,6 +20,7 @@ function Nav() {
       <Link to="/devices" className={linkClass("/devices")}>Devices</Link>
       <Link to="/services" className={linkClass("/services")}>Services</Link>
       <Link to="/events" className={linkClass("/events")}>Events</Link>
+      <Link to="/chat" className={linkClass("/chat")}>Chat</Link>
     </nav>
   );
 }
@@ -32,6 +34,7 @@ function App() {
         <Route path="/devices" element={<Devices />} />
         <Route path="/services" element={<Services />} />
         <Route path="/events" element={<Events />} />
+        <Route path="/chat" element={<Chat />} />
       </Routes>
     </div>
   );

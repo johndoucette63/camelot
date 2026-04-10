@@ -109,6 +109,8 @@ bash scripts/benchmark-drives.sh
 - PostgreSQL 16 (existing Docker volume, extended via Alembic migration) (008-network-discovery-inventory)
 - Python 3.12 (backend), TypeScript 5.x (frontend) + FastAPI 0.115, SQLAlchemy 2.0 async, asyncpg, `docker` SDK (docker-py), React 18, Tailwind CSS 3, TanStack React Table v8 (009-service-registry-dashboard)
 - PostgreSQL 16 (existing `advisor_pgdata` volume, extended via Alembic migration 002) (009-service-registry-dashboard)
+- Python 3.12 (backend), TypeScript 5.7 (frontend) + FastAPI 0.115, SQLAlchemy 2.0 async, asyncpg 0.30, Alembic 1.14, `httpx` 0.28 (already in `requirements.txt`, used as the Ollama client), Pydantic v2; React 18, Vite 6, Tailwind 3, react-router-dom 7, TanStack React Table 8 (not needed for this feature but available) (010-ai-advisor-chat)
+- PostgreSQL 16 in the existing `advisor_pgdata` Docker volume, extended via Alembic migration `003_chat_conversations.py` adding `conversations` and `messages` tables (010-ai-advisor-chat)
 
 ## Recent Changes
 - 006-ollama-gpu-deployment: Deployed Ollama LLM with GPU acceleration on HOLYGRAIL, Llama 3.1 8B default model, ollama.holygrail hostname routing

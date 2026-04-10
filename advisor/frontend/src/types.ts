@@ -131,3 +131,28 @@ export interface DashboardSummary {
   hosts: HostSummary[];
   hosts_unreachable: string[];
 }
+
+// ── Chat ────────────────────────────────────────────────────────────────
+
+export interface ChatMessage {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+  finished_at: string | null;
+  cancelled: boolean;
+}
+
+export interface ChatConversation {
+  id: number;
+  created_at: string;
+  updated_at: string;
+  title: string | null;
+  messages: ChatMessage[];
+}
+
+export type ChatFrame =
+  | { type: "start"; message_id: number }
+  | { type: "token"; content: string }
+  | { type: "done"; message_id: number; duration_ms: number; cancelled: boolean }
+  | { type: "error"; message_id: number; message: string };

@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pythonjsonlogger.json import JsonFormatter
 
-from app.routers import ai_context, containers, dashboard, devices, events, health, scans, services
+from app.routers import ai_context, chat, containers, dashboard, devices, events, health, scans, services
 from app.services.health_checker import run_health_checker
 
 # Structured JSON logging
@@ -71,3 +71,4 @@ app.include_router(scans.router, prefix="/scans", tags=["scans"])
 app.include_router(containers.router, prefix="/containers", tags=["containers"])
 app.include_router(services.router, prefix="/services", tags=["services"])
 app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+app.include_router(chat.router, prefix="/chat", tags=["chat"])
