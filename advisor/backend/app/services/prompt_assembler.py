@@ -11,6 +11,7 @@ whole response (FR-013).
 """
 
 import logging
+import re
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -29,9 +30,44 @@ logger = logging.getLogger(__name__)
 
 MAX_PROMPT_CHARS = 60_000
 
+# Standalone pronouns and demonstrative phrases that typically refer back
+# to an entity mentioned in the prior assistant turn. Matched case-
+# insensitively with word boundaries so substrings like "is" in "this" or
+# "it" in "item" don't trigger. Order matters — multi-word phrases come
+# first so they match before their single-word constituents.
+_PRONOUN_PATTERN = re.compile(
+    r"\b(?:"
+    r"that device|that service|that host|that one|"
+    r"the first one|the second one|the last one|"
+    r"the same one|the same|"
+    r"those|these|them|"
+    r"that|this|"
+    r"it|its|itself"
+    r")\b",
+    re.IGNORECASE,
+)
+
+_IPV4_PATTERN = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+
+# Don't try to resolve referents in long user queries — they usually have
+# enough context on their own and the rewrite adds noise.
+_REFERENT_MAX_QUERY_CHARS = 200
+
 SYSTEM_PREAMBLE = """You are the Camelot network advisor, a conversational assistant for a single home administrator managing a small home network.
 
-Answer questions about the user's network using the live state provided below. Always reference real devices and services by their actual names and IP addresses. If the answer cannot be determined from the state below, say so clearly — do not invent devices, services, or facts. Be concise."""
+Answer questions about the user's network using the live state provided below. Always reference real devices and services by their actual names and IP addresses. If the answer cannot be determined from the state below, say so clearly — do not invent devices, services, or facts.
+
+Formatting rules:
+- When listing multiple devices, services, alerts, or events, use a Markdown bullet list — one item per line, each starting with `- `.
+- For short single-value answers, reply in one sentence without a list.
+- Use `**bold**` sparingly to highlight device or service names when that aids scanning.
+- Use `inline code` for IP addresses, ports, and technical identifiers (e.g., `192.168.10.129`, `:32400`).
+- Keep responses tight. Prefer a list of 5 facts over a paragraph of 5 sentences.
+
+Follow-up questions and pronoun resolution:
+- When the user uses a pronoun like "it", "that", "those", "that device", "that service", "the first one", "the same one", always resolve it to the most recently mentioned specific entity (device, service, or IP address) from the immediately prior assistant turn.
+- Never default to HOLYGRAIL or any other device unless the user explicitly names it or it was the actual referent in the prior turn.
+- If the referent is genuinely ambiguous, ask the user which entity they mean rather than guessing."""
 
 
 async def _load_devices_section(db: AsyncSession) -> str:
@@ -174,6 +210,116 @@ async def _safe_load(
         )
 
 
+async def _load_known_names(db: AsyncSession) -> set[str]:
+    """Return the set of known device hostnames + service names that the
+    referent resolver can match against. Failures in either query return
+    a partial set rather than raising."""
+    names: set[str] = set()
+    try:
+        result = await db.execute(
+            select(Device.hostname).where(Device.hostname.isnot(None))
+        )
+        names.update(r[0] for r in result.all() if r[0])
+    except Exception as e:  # noqa: BLE001
+        logger.warning("known_names_devices_failed", extra={"error": str(e)})
+    try:
+        result = await db.execute(
+            select(ServiceDefinition.name).where(
+                ServiceDefinition.enabled.is_(True)
+            )
+        )
+        names.update(r[0] for r in result.all() if r[0])
+    except Exception as e:  # noqa: BLE001
+        logger.warning("known_names_services_failed", extra={"error": str(e)})
+    return names
+
+
+def _resolve_referent(
+    new_content: str,
+    prior_messages: list[dict[str, Any]],
+    known_names: set[str],
+) -> str | None:
+    """Return a rewritten version of `new_content` with the referent made
+    explicit, or None if no rewrite should happen.
+
+    Behavior:
+    - Skip if the query is long (>200 chars) — likely has its own context.
+    - Skip if the query already contains an explicit IP or a known name.
+    - Skip if the query doesn't contain a pronoun / demonstrative.
+    - Otherwise, walk prior messages for the most recent assistant turn,
+      extract the first IP mentioned (most specific anchor) or fall back
+      to the first known name, and append a parenthetical referent hint.
+
+    Uses "first IP" rather than "last IP" because the subject of a
+    typical answer ("The slowest device is 192.168.10.143, as it...") is
+    almost always the earliest IP in the reply.
+    """
+    if len(new_content) > _REFERENT_MAX_QUERY_CHARS:
+        return None
+
+    # Explicit IP in the query → user is already being specific.
+    if _IPV4_PATTERN.search(new_content):
+        return None
+
+    # Explicit known hostname/service name in the query → also specific.
+    content_lower = new_content.lower()
+    for name in known_names:
+        if re.search(rf"\b{re.escape(name.lower())}\b", content_lower):
+            return None
+
+    if not _PRONOUN_PATTERN.search(new_content):
+        return None
+
+    # Find the most recent assistant message.
+    prior_assistant_content: str | None = None
+    for m in reversed(prior_messages):
+        if m.get("role") == "assistant":
+            prior_assistant_content = m.get("content") or ""
+            break
+    if not prior_assistant_content:
+        return None
+
+    # Prefer IP addresses as the anchor — most specific, unambiguous.
+    ips = _IPV4_PATTERN.findall(prior_assistant_content)
+    if ips:
+        referent = ips[0]
+        logger.info(
+            "referent_resolved",
+            extra={
+                "anchor_type": "ip",
+                "referent": referent,
+                "query_chars": len(new_content),
+            },
+        )
+        return (
+            f"{new_content} "
+            f"(in the context of your previous answer about {referent})"
+        )
+
+    # Fallback: earliest known name mentioned in the prior assistant turn.
+    prior_lower = prior_assistant_content.lower()
+    best: tuple[int, str] | None = None
+    for name in known_names:
+        pos = prior_lower.find(name.lower())
+        if pos >= 0 and (best is None or pos < best[0]):
+            best = (pos, name)
+    if best is not None:
+        logger.info(
+            "referent_resolved",
+            extra={
+                "anchor_type": "name",
+                "referent": best[1],
+                "query_chars": len(new_content),
+            },
+        )
+        return (
+            f"{new_content} "
+            f"(in the context of your previous answer about {best[1]})"
+        )
+
+    return None
+
+
 async def assemble_chat_messages(
     db: AsyncSession,
     conversation_id: int,
@@ -219,9 +365,16 @@ async def assemble_chat_messages(
     if prior and prior[-1]["role"] == "user" and prior[-1]["content"] == new_user_content:
         prior.pop()
 
+    # Referent resolution: on short follow-up questions with pronouns, make
+    # the anchor entity explicit for the LLM. Only affects what Ollama sees;
+    # the user's original message remains unchanged in the database.
+    known_names = await _load_known_names(db)
+    rewritten = _resolve_referent(new_user_content, prior, known_names)
+    final_user_content = rewritten if rewritten is not None else new_user_content
+
     messages: list[dict[str, Any]] = [{"role": "system", "content": system_content}]
     messages.extend(prior)
-    messages.append({"role": "user", "content": new_user_content})
+    messages.append({"role": "user", "content": final_user_content})
 
     # Defensive size check — trim oldest prior messages if the total exceeds
     # the character budget. Never trim the system message or the new user

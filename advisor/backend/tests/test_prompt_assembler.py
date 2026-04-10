@@ -302,6 +302,173 @@ async def test_degrades_gracefully_when_devices_query_fails(db, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_referent_resolution_rewrites_pronoun_query_with_prior_ip(db):
+    """A short follow-up with a pronoun gets rewritten to include the IP
+    from the most recent assistant message."""
+    conv = await _seed_basic(db)
+    db.add_all(
+        [
+            Message(
+                conversation_id=conv.id,
+                role="user",
+                content="what's the slowest device?",
+                created_at=_now() - timedelta(minutes=5),
+            ),
+            Message(
+                conversation_id=conv.id,
+                role="assistant",
+                content="One possible candidate for a slow device is 192.168.10.143, as it has multiple offline events.",
+                created_at=_now() - timedelta(minutes=4),
+                finished_at=_now() - timedelta(minutes=4),
+            ),
+        ]
+    )
+    await db.commit()
+
+    messages = await prompt_assembler.assemble_chat_messages(
+        db, conv.id, "tell me more about that device"
+    )
+    last = messages[-1]
+    assert last["role"] == "user"
+    assert "192.168.10.143" in last["content"]
+    assert "tell me more about that device" in last["content"]
+
+
+@pytest.mark.asyncio
+async def test_referent_resolution_skips_when_query_already_names_ip(db):
+    """If the user's new query already contains an explicit IP, no rewrite."""
+    conv = await _seed_basic(db)
+    db.add_all(
+        [
+            Message(
+                conversation_id=conv.id,
+                role="assistant",
+                content="It's 192.168.10.143.",
+                created_at=_now() - timedelta(minutes=4),
+                finished_at=_now() - timedelta(minutes=4),
+            ),
+        ]
+    )
+    await db.commit()
+
+    query = "what's the status of 192.168.10.129?"
+    messages = await prompt_assembler.assemble_chat_messages(db, conv.id, query)
+    assert messages[-1]["content"] == query
+
+
+@pytest.mark.asyncio
+async def test_referent_resolution_skips_when_no_pronoun(db):
+    """Queries without pronouns are sent through unchanged even when a
+    prior assistant message mentioned a specific entity."""
+    conv = await _seed_basic(db)
+    db.add_all(
+        [
+            Message(
+                conversation_id=conv.id,
+                role="assistant",
+                content="The slowest device is 192.168.10.143.",
+                created_at=_now() - timedelta(minutes=4),
+                finished_at=_now() - timedelta(minutes=4),
+            ),
+        ]
+    )
+    await db.commit()
+
+    query = "what are my recent alerts?"
+    messages = await prompt_assembler.assemble_chat_messages(db, conv.id, query)
+    assert messages[-1]["content"] == query
+
+
+@pytest.mark.asyncio
+async def test_referent_resolution_skips_long_queries(db):
+    """Long queries (>200 chars) are treated as self-contained and not
+    rewritten, even if they contain a pronoun."""
+    conv = await _seed_basic(db)
+    db.add_all(
+        [
+            Message(
+                conversation_id=conv.id,
+                role="assistant",
+                content="192.168.10.143 is slow.",
+                created_at=_now() - timedelta(minutes=4),
+                finished_at=_now() - timedelta(minutes=4),
+            ),
+        ]
+    )
+    await db.commit()
+
+    long_query = (
+        "Tell me more about that device because I was looking at it earlier "
+        "this afternoon and noticed it was behaving in a strange way that I "
+        "didn't fully understand and want to dig into the uptime stats and "
+        "recent events to find out what's going on."
+    )
+    assert len(long_query) > 200
+    messages = await prompt_assembler.assemble_chat_messages(db, conv.id, long_query)
+    assert messages[-1]["content"] == long_query
+
+
+@pytest.mark.asyncio
+async def test_referent_resolution_falls_back_to_hostname(db):
+    """When no IP is in the prior assistant message, fall back to the
+    first known hostname mentioned there."""
+    conv = await _seed_basic(db)  # seeds HOLYGRAIL and nas
+    db.add_all(
+        [
+            Message(
+                conversation_id=conv.id,
+                role="assistant",
+                content="The slowest device in your network is HOLYGRAIL right now.",
+                created_at=_now() - timedelta(minutes=4),
+                finished_at=_now() - timedelta(minutes=4),
+            ),
+        ]
+    )
+    await db.commit()
+
+    messages = await prompt_assembler.assemble_chat_messages(
+        db, conv.id, "tell me more about it"
+    )
+    assert "HOLYGRAIL" in messages[-1]["content"]
+    assert "tell me more about it" in messages[-1]["content"]
+
+
+@pytest.mark.asyncio
+async def test_referent_resolution_skips_when_no_prior_assistant_turn(db):
+    """First user message in a conversation — nothing to resolve against."""
+    conv = await _seed_basic(db)
+
+    query = "tell me more about that"
+    messages = await prompt_assembler.assemble_chat_messages(db, conv.id, query)
+    assert messages[-1]["content"] == query
+
+
+@pytest.mark.asyncio
+async def test_referent_resolution_uses_first_ip_when_prior_lists_multiple(db):
+    """When the prior assistant message lists several IPs, the earliest
+    one (subject position) is used as the referent."""
+    conv = await _seed_basic(db)
+    db.add_all(
+        [
+            Message(
+                conversation_id=conv.id,
+                role="assistant",
+                content="The candidates are 192.168.10.143, 192.168.10.144, and 192.168.10.145.",
+                created_at=_now() - timedelta(minutes=4),
+                finished_at=_now() - timedelta(minutes=4),
+            ),
+        ]
+    )
+    await db.commit()
+
+    messages = await prompt_assembler.assemble_chat_messages(
+        db, conv.id, "tell me more about that one"
+    )
+    assert "192.168.10.143" in messages[-1]["content"]
+    assert "192.168.10.144" not in messages[-1]["content"]
+
+
+@pytest.mark.asyncio
 async def test_warns_and_trims_when_prompt_exceeds_max_chars(db, monkeypatch, caplog):
     conv = await _seed_basic(db)
     # Seed many large prior messages to exceed the limit.
