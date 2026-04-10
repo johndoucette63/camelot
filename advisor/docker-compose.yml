@@ -23,15 +23,22 @@ services:
   backend:
     build: ./backend
     restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-john}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-advisor}}
-      OLLAMA_URL: ${OLLAMA_URL:-http://ollama.holygrail}
+      # Default to the ollama container hostname on the holygrail-proxy
+      # network so the advisor chat can reach Ollama directly (Traefik is
+      # only needed for LAN-facing browser traffic, not container→container).
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b}
       TZ: ${TZ:-America/Denver}
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - advisor
+      - holygrail-proxy
 
   scanner:
     build: ./backend

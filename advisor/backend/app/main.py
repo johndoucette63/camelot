@@ -1,11 +1,15 @@
+import asyncio
 import logging
 import sys
+from contextlib import asynccontextmanager
 
+import docker
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pythonjsonlogger.json import JsonFormatter
 
-from app.routers import ai_context, devices, events, health, scans
+from app.routers import ai_context, chat, containers, dashboard, devices, events, health, scans, services
+from app.services.health_checker import run_health_checker
 
 # Structured JSON logging
 handler = logging.StreamHandler(sys.stdout)
@@ -15,7 +19,42 @@ logging.root.setLevel(logging.INFO)
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Network Advisor", version="0.2.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    try:
+        app.state.docker = docker.from_env()
+    except docker.errors.DockerException:
+        app.state.docker = None
+        logger.warning("Docker socket not available — container discovery disabled")
+
+    app.state.container_state = {
+        "running": [],
+        "stopped": [],
+        "refreshed_at": None,
+        "socket_error": True,
+    }
+    app.state.hosts_unreachable = set()
+
+    health_task = asyncio.create_task(run_health_checker(app))
+    logger.info("Network Advisor backend started")
+
+    yield
+
+    # Shutdown
+    health_task.cancel()
+    try:
+        await health_task
+    except asyncio.CancelledError:
+        pass
+
+    if app.state.docker:
+        app.state.docker.close()
+    logger.info("Network Advisor backend stopped")
+
+
+app = FastAPI(title="Network Advisor", version="0.3.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,5 +68,7 @@ app.include_router(ai_context.router, prefix="/ai-context", tags=["ai-context"])
 app.include_router(devices.router, prefix="/devices", tags=["devices"])
 app.include_router(events.router, prefix="/events", tags=["events"])
 app.include_router(scans.router, prefix="/scans", tags=["scans"])
-
-logger.info("Network Advisor backend started")
+app.include_router(containers.router, prefix="/containers", tags=["containers"])
+app.include_router(services.router, prefix="/services", tags=["services"])
+app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+app.include_router(chat.router, prefix="/chat", tags=["chat"])
