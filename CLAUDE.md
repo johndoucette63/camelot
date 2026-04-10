@@ -107,6 +107,8 @@ bash scripts/benchmark-drives.sh
 - PostgreSQL 16 (Docker container, named volume) (007-advisor-app-scaffold)
 - Python 3.12 (backend + scanner), TypeScript 5.x (frontend) + FastAPI 0.115, SQLAlchemy 2.0 async, asyncpg 0.30, Alembic 1.x, python-nmap 0.7.x, mac-vendor-lookup 0.3.x, APScheduler not used (simple asyncio loop); React 18, Tailwind CSS 3, Vite 5, TanStack Table v8 (sortable list) (008-network-discovery-inventory)
 - PostgreSQL 16 (existing Docker volume, extended via Alembic migration) (008-network-discovery-inventory)
+- Python 3.12 (backend), TypeScript 5.x (frontend) + FastAPI 0.115, SQLAlchemy 2.0 async, asyncpg, `docker` SDK (docker-py), React 18, Tailwind CSS 3, TanStack React Table v8 (009-service-registry-dashboard)
+- PostgreSQL 16 (existing `advisor_pgdata` volume, extended via Alembic migration 002) (009-service-registry-dashboard)
 
 ## Recent Changes
 - 006-ollama-gpu-deployment: Deployed Ollama LLM with GPU acceleration on HOLYGRAIL, Llama 3.1 8B default model, ollama.holygrail hostname routing

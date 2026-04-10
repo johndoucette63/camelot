@@ -8,6 +8,7 @@ pydantic-settings==2.7.1
 python-nmap==0.7.1
 mac-vendor-lookup==0.1.12
 alembic==1.14.1
+docker>=7.0
 pytest-asyncio==0.25.3
 aiosqlite==0.20.0
 httpx==0.28.1

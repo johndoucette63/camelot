@@ -68,3 +68,66 @@ export interface AiContext {
   devices: AiContextDevice[];
   events: AiContextEvent[];
 }
+
+// ── Service Registry & Health Dashboard ─────────────────────────────────
+
+export interface ContainerInfo {
+  id: string;
+  name: string;
+  image: string;
+  status: string;
+  ports: Record<string, unknown>;
+  uptime: string;
+  created: string;
+}
+
+export interface ContainerState {
+  running: ContainerInfo[];
+  stopped: ContainerInfo[];
+  refreshed_at: string | null;
+  socket_error: boolean;
+}
+
+export interface HealthCheckResultEntry {
+  checked_at: string;
+  status: string;
+  response_time_ms: number | null;
+  error: string | null;
+}
+
+export interface ServiceDefinition {
+  id: number;
+  name: string;
+  host_label: string;
+  host: string;
+  port: number;
+  check_type: string;
+  enabled: boolean;
+}
+
+export interface ServiceWithLatest extends ServiceDefinition {
+  latest: HealthCheckResultEntry | null;
+}
+
+export interface ServiceHistoryResponse {
+  service: ServiceDefinition;
+  history: HealthCheckResultEntry[];
+}
+
+export interface HostSummary {
+  label: string;
+  total: number;
+  healthy: number;
+  degraded: number;
+  down: number;
+}
+
+export interface DashboardSummary {
+  total: number;
+  healthy: number;
+  degraded: number;
+  down: number;
+  unchecked: number;
+  hosts: HostSummary[];
+  hosts_unreachable: string[];
+}
