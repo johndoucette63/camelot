@@ -156,3 +156,109 @@ export type ChatFrame =
   | { type: "token"; content: string }
   | { type: "done"; message_id: number; duration_ms: number; cancelled: boolean }
   | { type: "error"; message_id: number; message: string };
+
+// ── Recommendations & Alerts ────────────────────────────────────────────
+
+export type AlertSeverity = "info" | "warning" | "critical";
+export type AlertState = "active" | "acknowledged" | "resolved";
+export type AlertTargetType = "device" | "service" | "system";
+export type AlertResolutionSource = "auto" | "manual";
+export type AlertSource = "rule" | "ai";
+
+export interface Alert {
+  id: number;
+  rule_id: string;
+  rule_name: string;
+  severity: AlertSeverity;
+  target_type: AlertTargetType;
+  target_id: number | null;
+  target_label: string | null;
+  message: string;
+  state: AlertState;
+  source: AlertSource;
+  suppressed?: boolean;
+  created_at: string;
+  acknowledged_at: string | null;
+  resolved_at?: string | null;
+  resolution_source?: AlertResolutionSource | null;
+}
+
+export interface AlertListResponse {
+  total: number;
+  items: Alert[];
+  limit: number;
+  offset: number;
+}
+
+export interface Recommendation extends Alert {}
+
+export interface SeverityCounts {
+  critical: number;
+  warning: number;
+  info: number;
+}
+
+export interface AiNarrative {
+  text: string;
+  generated_at: string;
+  source: "ollama";
+}
+
+export interface RecommendationsResponse {
+  active: Recommendation[];
+  counts: SeverityCounts;
+  ai_narrative: AiNarrative | null;
+}
+
+export interface Threshold {
+  key: string;
+  value: number;
+  unit: string;
+  default_value: number;
+  min_value: number;
+  max_value: number;
+  updated_at: string;
+}
+
+export interface ThresholdListResponse {
+  thresholds: Threshold[];
+}
+
+export interface RuleMute {
+  id: number;
+  rule_id: string;
+  rule_name: string;
+  target_type: AlertTargetType;
+  target_id: number | null;
+  target_label: string | null;
+  created_at: string;
+  expires_at: string;
+  remaining_seconds: number;
+  note: string | null;
+}
+
+export interface MuteListResponse {
+  mutes: RuleMute[];
+}
+
+export interface NotificationSink {
+  id: number;
+  type: "home_assistant";
+  name: string;
+  enabled: boolean;
+  endpoint_masked: string;
+  min_severity: AlertSeverity;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotificationSinkListResponse {
+  sinks: NotificationSink[];
+}
+
+export interface NotificationTestResponse {
+  ok: boolean;
+  status_code?: number;
+  latency_ms?: number;
+  error?: string;
+}

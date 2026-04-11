@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import RecommendationsPanel from "../components/RecommendationsPanel";
 
 type HealthStatus = {
   status: string;
@@ -30,6 +31,10 @@ function Home() {
             Camelot infrastructure management dashboard
           </p>
         </header>
+
+        <div className="mb-8 text-gray-900">
+          <RecommendationsPanel />
+        </div>
 
         <section className="mb-8 rounded-lg border border-gray-700 bg-gray-800 p-6">
           <h2 className="mb-4 text-xl font-semibold">System Status</h2>
