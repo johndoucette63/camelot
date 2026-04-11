@@ -8,7 +8,21 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pythonjsonlogger.json import JsonFormatter
 
-from app.routers import ai_context, chat, containers, dashboard, devices, events, health, scans, services
+from app.routers import (
+    ai_context,
+    alerts,
+    chat,
+    containers,
+    dashboard,
+    devices,
+    events,
+    health,
+    recommendations,
+    scans,
+    services,
+    settings as settings_router,
+)
+from app.services import rule_engine
 from app.services.health_checker import run_health_checker
 
 # Structured JSON logging
@@ -38,16 +52,19 @@ async def lifespan(app: FastAPI):
     app.state.hosts_unreachable = set()
 
     health_task = asyncio.create_task(run_health_checker(app))
+    rule_engine_task = asyncio.create_task(rule_engine.run(app))
     logger.info("Network Advisor backend started")
 
     yield
 
     # Shutdown
     health_task.cancel()
-    try:
-        await health_task
-    except asyncio.CancelledError:
-        pass
+    rule_engine_task.cancel()
+    for task in (health_task, rule_engine_task):
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
     if app.state.docker:
         app.state.docker.close()
@@ -72,3 +89,6 @@ app.include_router(containers.router, prefix="/containers", tags=["containers"])
 app.include_router(services.router, prefix="/services", tags=["services"])
 app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 app.include_router(chat.router, prefix="/chat", tags=["chat"])
+app.include_router(recommendations.router)
+app.include_router(alerts.router)
+app.include_router(settings_router.router)

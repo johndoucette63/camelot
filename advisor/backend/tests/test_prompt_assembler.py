@@ -115,17 +115,29 @@ async def _seed_basic(db: AsyncSession) -> Conversation:
             severity="warning",
             message="NAS has been offline for 3 scans",
             created_at=_now() - timedelta(hours=2),
-            acknowledged=False,
+            rule_id="device_offline",
+            target_type="device",
+            target_id=nas.id,
+            state="active",
+            source="rule",
+            suppressed=False,
         )
     )
-    # Stale alert — should NOT appear in the 24h window.
+    # Already-resolved alert — should NOT appear in the Active Alerts section.
     db.add(
         Alert(
             device_id=nas.id,
             severity="info",
             message="An old advisory from three days ago",
             created_at=_now() - timedelta(hours=72),
-            acknowledged=True,
+            rule_id="device_offline",
+            target_type="device",
+            target_id=nas.id,
+            state="resolved",
+            resolved_at=_now() - timedelta(hours=70),
+            resolution_source="auto",
+            source="rule",
+            suppressed=False,
         )
     )
 
@@ -183,13 +195,15 @@ async def test_services_section_marks_unhealthy(db):
 
 
 @pytest.mark.asyncio
-async def test_alerts_section_includes_only_last_24_hours(db):
+async def test_alerts_section_shows_only_active_alerts(db):
     conv = await _seed_basic(db)
     messages = await prompt_assembler.assemble_chat_messages(
         db, conv.id, "what alerts?"
     )
     system = messages[0]["content"]
+    assert "## Active Alerts" in system
     assert "NAS has been offline" in system
+    # Resolved alert is excluded from the Active Alerts section.
     assert "three days ago" not in system
 
 

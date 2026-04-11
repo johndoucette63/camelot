@@ -15,7 +15,7 @@ import re
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -144,19 +144,47 @@ async def _load_services_section(db: AsyncSession) -> str:
     return "\n".join(lines)
 
 
+ACTIVE_ALERTS_LIMIT = 20
+
+
 async def _load_alerts_section(db: AsyncSession) -> str:
-    cutoff = datetime.utcnow() - timedelta(hours=24)
+    """Render the currently-open rule-based alerts for chat grounding (FR-028).
+
+    Returns a Markdown `## Active Alerts` section listing up to
+    ``ACTIVE_ALERTS_LIMIT`` alerts ordered critical → warning → info, then
+    by ``created_at DESC``. If more exist beyond the limit, a trailing
+    `(N more not shown)` line is appended so the model knows the list was
+    capped.
+    """
+    severity_rank = case(
+        (Alert.severity == "critical", 0),
+        (Alert.severity == "warning", 1),
+        (Alert.severity == "info", 2),
+        else_=3,
+    )
+
+    base_where = [
+        Alert.state.in_(("active", "acknowledged")),
+        Alert.suppressed.is_(False),
+    ]
+
+    total = (
+        await db.execute(select(func.count()).select_from(Alert).where(*base_where))
+    ).scalar_one()
+
+    if total == 0:
+        return "## Active Alerts\n(no active alerts)"
+
     result = await db.execute(
         select(Alert)
         .options(selectinload(Alert.device), selectinload(Alert.service))
-        .where(Alert.created_at >= cutoff)
-        .order_by(Alert.created_at.desc())
+        .where(*base_where)
+        .order_by(severity_rank, Alert.created_at.desc())
+        .limit(ACTIVE_ALERTS_LIMIT)
     )
     alerts = result.scalars().all()
-    if not alerts:
-        return "## Recent alerts (last 24h)\n(no alerts in the last 24 hours)"
 
-    lines = [f"## Recent alerts (last 24h, {len(alerts)} total)"]
+    lines = [f"## Active Alerts ({total} open)"]
     for a in alerts:
         ts = a.created_at.isoformat() + "Z"
         target = ""
@@ -164,10 +192,14 @@ async def _load_alerts_section(db: AsyncSession) -> str:
             target = f" — device={a.device.hostname or a.device.ip_address}"
         if a.service is not None:
             target += f" — service={a.service.name}"
-        ack = " [ack]" if a.acknowledged else ""
+        state_tag = f" [{a.state}]" if a.state == "acknowledged" else ""
         lines.append(
-            f"- {ts} — {a.severity.upper()}{target} — {a.message}{ack}"
+            f"- {ts} — {a.severity.upper()}{target} — {a.message}{state_tag}"
         )
+
+    if total > ACTIVE_ALERTS_LIMIT:
+        lines.append(f"({total - ACTIVE_ALERTS_LIMIT} more not shown)")
+
     return "\n".join(lines)
 
 

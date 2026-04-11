@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, Text, func
+from sqlalchemy import Boolean, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -14,8 +14,17 @@ class Alert(Base):
     service_id: Mapped[int | None] = mapped_column(ForeignKey("services.id"), nullable=True)
     severity: Mapped[str] = mapped_column(String(20), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
-    acknowledged: Mapped[bool] = mapped_column(nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
+
+    rule_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    target_id: Mapped[int | None] = mapped_column(nullable=True)
+    state: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    acknowledged_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    resolution_source: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    source: Mapped[str] = mapped_column(String(10), nullable=False, default="rule")
+    suppressed: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=False)
 
     device: Mapped["Device | None"] = relationship(back_populates="alerts")  # noqa: F821
     service: Mapped["Service | None"] = relationship()  # noqa: F821
