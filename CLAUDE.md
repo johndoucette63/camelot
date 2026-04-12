@@ -113,6 +113,8 @@ bash scripts/benchmark-drives.sh
 - PostgreSQL 16 in the existing `advisor_pgdata` Docker volume, extended via Alembic migration `003_chat_conversations.py` adding `conversations` and `messages` tables (010-ai-advisor-chat)
 - Python 3.12 (backend), TypeScript 5.7 (frontend) + FastAPI 0.115, SQLAlchemy 2.0 async, asyncpg 0.30, Alembic 1.14, `httpx` 0.28 (for Ollama + Home Assistant webhook calls, already in `requirements.txt`), Pydantic v2; React 18, Vite 6, Tailwind 3, react-router-dom 7, TanStack React Table 8 (used for the alert history table) (011-recommendations-alerts)
 - PostgreSQL 16 in the existing `advisor_pgdata` Docker volume. Extended via a new Alembic migration `004_recommendations_alerts.py` which (a) adds lifecycle + rule columns to the existing `alerts` table, (b) creates `alert_thresholds`, `rule_mutes`, and `notification_sinks` tables (011-recommendations-alerts)
+- Python 3.12 (backend), TypeScript 5.7 (frontend) + FastAPI 0.115, SQLAlchemy 2.0 async, asyncpg 0.30, Alembic 1.14, httpx 0.28; React 18, Vite 6, Tailwind CSS 3, react-router-dom 7, TanStack React Table 8, react-markdown 10 (012-advisor-learnings-notes)
+- PostgreSQL 16 in existing `advisor_pgdata` Docker volume, extended via Alembic migration `005_advisor_notes.py` (012-advisor-learnings-notes)
 
 ## Recent Changes
 - 006-ollama-gpu-deployment: Deployed Ollama LLM with GPU acceleration on HOLYGRAIL, Llama 3.1 8B default model, ollama.holygrail hostname routing

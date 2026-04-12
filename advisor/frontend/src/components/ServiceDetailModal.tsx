@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { HealthStatusBadge } from "./HealthStatusBadge";
+import { NotesList } from "./NotesList";
 import type { ServiceWithLatest, ServiceHistoryResponse, HealthCheckResultEntry } from "../types";
 
 interface ServiceDetailModalProps {
@@ -8,6 +9,7 @@ interface ServiceDetailModalProps {
 }
 
 export function ServiceDetailModal({ service, onClose }: ServiceDetailModalProps) {
+  const [tab, setTab] = useState<"health" | "notes">("health");
   const [history, setHistory] = useState<HealthCheckResultEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -45,8 +47,36 @@ export function ServiceDetailModal({ service, onClose }: ServiceDetailModalProps
           </button>
         </div>
 
-        {/* History */}
+        {/* Tabs */}
+        <div className="px-5 flex gap-1 border-b border-gray-200">
+          <button
+            onClick={() => setTab("health")}
+            className={`px-3 py-1.5 text-sm font-medium border-b-2 -mb-px ${
+              tab === "health"
+                ? "border-blue-600 text-blue-700"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Health History
+          </button>
+          <button
+            onClick={() => setTab("notes")}
+            className={`px-3 py-1.5 text-sm font-medium border-b-2 -mb-px ${
+              tab === "notes"
+                ? "border-blue-600 text-blue-700"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Notes
+          </button>
+        </div>
+
+        {/* Content */}
         <div className="px-5 py-4 overflow-y-auto flex-1">
+          {tab === "notes" ? (
+            <NotesList targetType="service" targetId={service.id} />
+          ) : (
+          <>
           <h3 className="text-sm font-medium text-gray-600 mb-3">Health History (last 24h)</h3>
           {loading ? (
             <div className="space-y-2">
@@ -84,6 +114,8 @@ export function ServiceDetailModal({ service, onClose }: ServiceDetailModalProps
               </p>
             ) : null;
           })()}
+          </>
+          )}
         </div>
       </div>
     </div>

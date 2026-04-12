@@ -312,3 +312,37 @@ async def post_message(
         # Cancelled path: disconnect is the terminal signal; no final frame.
 
     return StreamingResponse(stream_frames(), media_type="application/x-ndjson")
+
+
+# ── Suggest notes ───────────────────────────────────────────────────────
+
+
+@router.post("/conversations/{conversation_id}/suggest-notes")
+async def suggest_notes(conversation_id: int, db: DbDep):
+    """Extract note suggestions from conversation via LLM (FR-014)."""
+    from app.services.note_suggester import generate_suggestions
+
+    result = await db.execute(
+        select(Conversation)
+        .options(selectinload(Conversation.messages))
+        .where(Conversation.id == conversation_id)
+    )
+    conv = result.scalars().first()
+    if conv is None:
+        raise HTTPException(404, "Conversation not found")
+
+    messages = [
+        {"role": m.role, "content": m.content}
+        for m in conv.messages
+        if m.content
+    ]
+
+    try:
+        suggestions = await generate_suggestions(db, messages)
+    except Exception as e:  # noqa: BLE001
+        logger.warning(
+            "suggest_notes_failed", extra={"error": str(e)}
+        )
+        return {"suggestions": [], "error": "LLM service unavailable"}
+
+    return {"suggestions": suggestions}

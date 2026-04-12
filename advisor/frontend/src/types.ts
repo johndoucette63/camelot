@@ -5,6 +5,7 @@ export interface Annotation {
 }
 
 export interface Device {
+  id: number;
   mac_address: string;
   ip_address: string;
   hostname: string | null;
@@ -260,5 +261,38 @@ export interface NotificationTestResponse {
   ok: boolean;
   status_code?: number;
   latency_ms?: number;
+  error?: string;
+}
+
+// ── Notes & Playbook ──────────────────────────────────────────────────
+
+export type NoteTargetType = "device" | "service" | "playbook";
+
+export interface Note {
+  id: number;
+  target_type: NoteTargetType;
+  target_id: number | null;
+  title: string | null;
+  body: string;
+  pinned: boolean;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NoteListResponse {
+  notes: Note[];
+  total: number;
+}
+
+export interface NoteSuggestion {
+  target_type: NoteTargetType;
+  target_id: number | null;
+  target_label: string | null;
+  body: string;
+}
+
+export interface SuggestNotesResponse {
+  suggestions: NoteSuggestion[];
   error?: string;
 }

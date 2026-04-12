@@ -17,6 +17,7 @@ from app.routers import (
     devices,
     events,
     health,
+    notes,
     recommendations,
     scans,
     services,
@@ -89,6 +90,7 @@ app.include_router(containers.router, prefix="/containers", tags=["containers"])
 app.include_router(services.router, prefix="/services", tags=["services"])
 app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 app.include_router(chat.router, prefix="/chat", tags=["chat"])
+app.include_router(notes.router, prefix="/notes", tags=["notes"])
 app.include_router(recommendations.router)
 app.include_router(alerts.router)
 app.include_router(settings_router.router)
