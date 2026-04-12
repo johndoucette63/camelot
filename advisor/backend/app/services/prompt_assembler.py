@@ -20,10 +20,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.alert import Alert
+from app.models.annotation import Annotation
 from app.models.conversation import Conversation
 from app.models.device import Device
 from app.models.event import Event
 from app.models.health_check_result import HealthCheckResult
+from app.models.note import Note
 from app.models.service_definition import ServiceDefinition
 
 logger = logging.getLogger(__name__)
@@ -67,7 +69,11 @@ Formatting rules:
 Follow-up questions and pronoun resolution:
 - When the user uses a pronoun like "it", "that", "those", "that device", "that service", "the first one", "the same one", always resolve it to the most recently mentioned specific entity (device, service, or IP address) from the immediately prior assistant turn.
 - Never default to HOLYGRAIL or any other device unless the user explicitly names it or it was the actual referent in the prior turn.
-- If the referent is genuinely ambiguous, ask the user which entity they mean rather than guessing."""
+- If the referent is genuinely ambiguous, ask the user which entity they mean rather than guessing.
+
+Admin notes:
+- The "Admin Notes" section below contains durable notes written by the administrator about their network. Treat these as authoritative facts.
+- When your answer draws on an admin note, cite where it came from (e.g., "According to your note on the NAS…" or "Per your playbook entry on VPN rotation…")."""
 
 
 async def _load_devices_section(db: AsyncSession) -> str:
@@ -226,6 +232,74 @@ async def _load_events_section(db: AsyncSession) -> str:
     return "\n".join(lines)
 
 
+async def _load_notes_section(db: AsyncSession) -> str:
+    """Render the admin notes section for chat grounding.
+
+    Pinned notes are always included. Unpinned notes are included only if
+    they fit within a secondary character budget so they don't push the
+    prompt over the limit. Notes are grouped by target for attribution.
+    """
+    # Load all notes — pinned first, then unpinned by updated_at desc.
+    result = await db.execute(
+        select(Note).order_by(Note.pinned.desc(), Note.updated_at.desc())
+    )
+    all_notes = result.scalars().all()
+    if not all_notes:
+        return "## Admin Notes\n(no admin notes)"
+
+    # Resolve device/service labels for attribution headers.
+    device_ids = {n.target_id for n in all_notes if n.target_type == "device" and n.target_id}
+    service_ids = {n.target_id for n in all_notes if n.target_type == "service" and n.target_id}
+
+    device_labels: dict[int, str] = {}
+    if device_ids:
+        rows = await db.execute(
+            select(Device)
+            .options(selectinload(Device.annotation))
+            .where(Device.id.in_(device_ids))
+        )
+        for d in rows.scalars().all():
+            label = d.hostname or d.mac_address
+            device_labels[d.id] = f"{label} ({d.ip_address})"
+
+    service_labels: dict[int, str] = {}
+    if service_ids:
+        rows = await db.execute(
+            select(ServiceDefinition).where(ServiceDefinition.id.in_(service_ids))
+        )
+        for s in rows.scalars().all():
+            service_labels[s.id] = f"{s.name} on {s.host_label}"
+
+    # Budget for unpinned notes: allow up to 8000 chars for the whole
+    # notes section so it doesn't dominate the prompt.
+    NOTES_BUDGET = 8_000
+    chars_used = 0
+
+    lines = ["## Admin Notes"]
+    for note in all_notes:
+        # Build the attribution header + body line.
+        pin_tag = "[pinned] " if note.pinned else ""
+        if note.target_type == "device":
+            header = f"Device: {device_labels.get(note.target_id or 0, f'id={note.target_id}')}"
+        elif note.target_type == "service":
+            header = f"Service: {service_labels.get(note.target_id or 0, f'id={note.target_id}')}"
+        else:
+            header = f"Playbook: {note.title or '(untitled)'}"
+
+        entry = f"### {header}\n- {pin_tag}{note.body}"
+
+        if note.pinned:
+            lines.append(entry)
+            chars_used += len(entry)
+        else:
+            if chars_used + len(entry) <= NOTES_BUDGET:
+                lines.append(entry)
+                chars_used += len(entry)
+            # else: silently skip — unpinned notes trimmed under budget
+
+    return "\n\n".join(lines)
+
+
 async def _safe_load(
     name: str, loader, db: AsyncSession
 ) -> str:
@@ -367,10 +441,11 @@ async def assemble_chat_messages(
     devices_md = await _safe_load("devices", _load_devices_section, db)
     services_md = await _safe_load("services", _load_services_section, db)
     alerts_md = await _safe_load("alerts", _load_alerts_section, db)
+    notes_md = await _safe_load("admin notes", _load_notes_section, db)
     events_md = await _safe_load("events", _load_events_section, db)
 
     system_content = "\n\n".join(
-        [SYSTEM_PREAMBLE, devices_md, services_md, alerts_md, events_md]
+        [SYSTEM_PREAMBLE, devices_md, services_md, alerts_md, notes_md, events_md]
     )
 
     # Load prior messages for this conversation. Exclude empty assistant

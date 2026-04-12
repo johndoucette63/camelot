@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { ChatComposer } from "../components/ChatComposer";
 import { ChatThread } from "../components/ChatThread";
+import { NoteSuggestionPanel } from "../components/NoteSuggestionPanel";
 import {
   createConversation,
   fetchLatestConversation,
   streamChatMessage,
 } from "../services/chat";
-import type { ChatConversation, ChatMessage } from "../types";
+import { suggestNotes } from "../services/notes";
+import type { ChatConversation, ChatMessage, NoteSuggestion } from "../types";
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -17,6 +19,8 @@ function Chat() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [streamingMessageId, setStreamingMessageId] = useState<number | null>(null);
+  const [suggestions, setSuggestions] = useState<NoteSuggestion[] | null>(null);
+  const [suggestingNotes, setSuggestingNotes] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -52,8 +56,22 @@ function Chat() {
     try {
       const fresh = await createConversation();
       setConversation(fresh);
+      setSuggestions(null);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const handleSuggestNotes = async () => {
+    if (!conversation || isStreaming || suggestingNotes) return;
+    setSuggestingNotes(true);
+    try {
+      const resp = await suggestNotes(conversation.id);
+      setSuggestions(resp.suggestions.length > 0 ? resp.suggestions : null);
+    } catch {
+      // Silently ignore — FR-019
+    } finally {
+      setSuggestingNotes(false);
     }
   };
 
@@ -206,10 +224,25 @@ function Chat() {
         streamingMessageId={streamingMessageId}
       />
 
+      {suggestions && conversation && (
+        <div className="px-6 py-3 border-t border-gray-200 bg-gray-50">
+          <div className="mx-auto max-w-3xl">
+            <NoteSuggestionPanel
+              suggestions={suggestions}
+              conversationId={conversation.id}
+              onDone={() => setSuggestions(null)}
+            />
+          </div>
+        </div>
+      )}
+
       <ChatComposer
         onSubmit={handleSubmit}
         onStop={handleStop}
+        onSuggestNotes={handleSuggestNotes}
         isStreaming={isStreaming}
+        hasMessages={(conversation?.messages.length ?? 0) > 0}
+        suggestingNotes={suggestingNotes}
       />
     </div>
   );

@@ -37,6 +37,7 @@ class AnnotationOut(BaseModel):
 
 
 class DeviceOut(BaseModel):
+    id: int
     mac_address: str
     ip_address: str
     hostname: str | None
@@ -57,6 +58,7 @@ def _device_to_out(device: Device) -> DeviceOut:
             tags=device.annotation.tags or [],
         )
     return DeviceOut(
+        id=device.id,
         mac_address=device.mac_address,
         ip_address=device.ip_address,
         hostname=device.hostname,

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Device } from "../types";
+import { NotesList } from "./NotesList";
 
 const ROLES = [
   "server",
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export function DeviceAnnotationModal({ device, onClose, onSaved }: Props) {
+  const [tab, setTab] = useState<"annotation" | "notes">("annotation");
   const [role, setRole] = useState(device.annotation?.role ?? "unknown");
   const [description, setDescription] = useState(device.annotation?.description ?? "");
   const [tagsInput, setTagsInput] = useState(
@@ -66,81 +68,121 @@ export function DeviceAnnotationModal({ device, onClose, onSaved }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-1">Annotate Device</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6 max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between mb-1">
+          <h2 className="text-lg font-semibold text-gray-800">Device Details</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+            aria-label="Close"
+          >
+            &times;
+          </button>
+        </div>
         <p className="text-sm text-gray-500 font-mono">
           {device.hostname ?? device.mac_address} · {device.ip_address}
         </p>
-        <p className="text-xs text-gray-400 mb-4">
+        <p className="text-xs text-gray-400 mb-3">
           Last seen: {new Date(device.last_seen).toLocaleString()}
           {device.vendor ? ` · ${device.vendor}` : ""}
         </p>
 
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              {ROLES.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              placeholder="Optional description…"
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tags <span className="text-gray-400 font-normal">(comma-separated)</span>
-            </label>
-            <input
-              type="text"
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="e.g. plex, media, lan"
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-
-        {error && (
-          <p className="mt-3 text-sm text-red-600">{error}</p>
-        )}
-
-        <div className="mt-6 flex justify-end gap-2">
+        <div className="flex gap-1 border-b border-gray-200 mb-4">
           <button
-            onClick={onClose}
-            disabled={saving}
-            className="px-4 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving || saved}
-            className={`px-4 py-1.5 text-sm text-white rounded disabled:opacity-75 ${
-              saved
-                ? "bg-green-600"
-                : "bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+            onClick={() => setTab("annotation")}
+            className={`px-3 py-1.5 text-sm font-medium border-b-2 -mb-px ${
+              tab === "annotation"
+                ? "border-blue-600 text-blue-700"
+                : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
-            {saving ? "Saving…" : saved ? "Saved ✓" : "Save"}
+            Annotation
           </button>
+          <button
+            onClick={() => setTab("notes")}
+            className={`px-3 py-1.5 text-sm font-medium border-b-2 -mb-px ${
+              tab === "notes"
+                ? "border-blue-600 text-blue-700"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Notes
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1">
+          {tab === "annotation" ? (
+            <>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    {ROLES.map((r) => (
+                      <option key={r} value={r}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    rows={3}
+                    placeholder="Optional description…"
+                    className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tags <span className="text-gray-400 font-normal">(comma-separated)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={tagsInput}
+                    onChange={(e) => setTagsInput(e.target.value)}
+                    placeholder="e.g. plex, media, lan"
+                    className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <p className="mt-3 text-sm text-red-600">{error}</p>
+              )}
+
+              <div className="mt-6 flex justify-end gap-2">
+                <button
+                  onClick={onClose}
+                  disabled={saving}
+                  className="px-4 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving || saved}
+                  className={`px-4 py-1.5 text-sm text-white rounded disabled:opacity-75 ${
+                    saved
+                      ? "bg-green-600"
+                      : "bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                  }`}
+                >
+                  {saving ? "Saving…" : saved ? "Saved ✓" : "Save"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <NotesList targetType="device" targetId={device.id} />
+          )}
         </div>
       </div>
     </div>
