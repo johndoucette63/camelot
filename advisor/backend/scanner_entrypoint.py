@@ -45,6 +45,7 @@ logger = logging.getLogger("scanner")
 # Import after logging is configured
 from app.models.event import Event  # noqa: E402
 from app.models.scan import Scan  # noqa: E402
+from app.services.enrichment import MdnsListener, run_enrichment  # noqa: E402
 from app.services.scanner import run_scan  # noqa: E402
 
 DATABASE_URL = os.environ.get(
@@ -76,6 +77,10 @@ async def main() -> None:
 
     logger.info("Scanner started", extra={"target": SCAN_TARGET, "interval": SCAN_INTERVAL})
 
+    # Start passive mDNS listener — accumulates discoveries across scan cycles
+    mdns_listener = MdnsListener()
+    mdns_listener.start()
+
     while True:
         try:
             async with session_factory() as db:
@@ -99,6 +104,10 @@ async def main() -> None:
                         "new_devices": scan.new_devices,
                     },
                 )
+
+                # Run enrichment after scan
+                logger.info("Starting enrichment")
+                await run_enrichment(db, mdns_listener.cache)
         except Exception as exc:
             logger.error("Scanner loop error", extra={"error": str(exc)})
 

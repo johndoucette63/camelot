@@ -37,6 +37,8 @@ class AiContextDevice(BaseModel):
     description: str | None
     tags: list[str]
     is_online: bool
+    os_family: str | None = None
+    classification_source: str | None = None
 
 
 class AiContextEvent(BaseModel):
@@ -72,6 +74,8 @@ async def get_ai_context(db: DbDep) -> AiContextResponse:
                 description=d.annotation.description if d.annotation else None,
                 tags=d.annotation.tags if d.annotation else [],
                 is_online=d.is_online,
+                os_family=d.os_family,
+                classification_source=d.annotation.classification_source if d.annotation else None,
             )
         )
 

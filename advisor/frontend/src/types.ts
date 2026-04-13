@@ -2,6 +2,8 @@ export interface Annotation {
   role: string;
   description: string | null;
   tags: string[];
+  classification_source: string | null;
+  classification_confidence: string | null;
 }
 
 export interface Device {
@@ -15,6 +17,13 @@ export interface Device {
   is_online: boolean;
   is_known_device: boolean;
   monitor_offline: boolean;
+  os_family: string | null;
+  os_detail: string | null;
+  mdns_name: string | null;
+  netbios_name: string | null;
+  ssdp_friendly_name: string | null;
+  ssdp_model: string | null;
+  last_enriched_at: string | null;
   annotation: Annotation | null;
 }
 
@@ -56,6 +65,8 @@ export interface AiContextDevice {
   description: string | null;
   tags: string[];
   is_online: boolean;
+  os_family: string | null;
+  classification_source: string | null;
 }
 
 export interface AiContextEvent {

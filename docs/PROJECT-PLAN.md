@@ -140,6 +140,7 @@ Build the core advisor application. See [network-advisor-spec.md](network-adviso
 | 4.7 | Dashboard UI | Device list, service status, health indicators |
 | 4.8 | AI chat integration | Connect to Ollama, dynamic system prompt with network context |
 | 4.9 | Recommendations engine | Rule-based alerts (CPU, memory, disk, connectivity) |
+| 4.10 | Device enrichment | Multi-protocol fingerprinting (mDNS, nmap OS/svc, NetBIOS, SSDP) + auto-classification |
 
 **Deliverables:**
 - Network Advisor accessible at `http://holygrail:<port>`
@@ -147,6 +148,7 @@ Build the core advisor application. See [network-advisor-spec.md](network-adviso
 - Service health dashboard with green/yellow/red status
 - AI chat answering questions grounded in live network state
 - At least 5 recommendation rules firing
+- Unknown devices auto-identified via mDNS, OS fingerprinting, and UPnP
 
 ---
 

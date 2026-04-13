@@ -23,4 +23,8 @@ class Annotation(Base):
         nullable=False, server_default=func.now(), onupdate=func.now()
     )
 
+    # Classification columns
+    classification_source: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    classification_confidence: Mapped[str | None] = mapped_column(String(10), nullable=True)
+
     device: Mapped["Device"] = relationship(back_populates="annotation")  # noqa: F821

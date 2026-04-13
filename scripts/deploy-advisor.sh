@@ -27,7 +27,7 @@ rsync -avz --delete \
 
 echo ""
 echo "--- Step 2: Build and start containers ---"
-ssh "$REMOTE" "cd $REMOTE_DIR && docker compose build backend frontend"
+ssh "$REMOTE" "cd $REMOTE_DIR && docker compose build backend frontend scanner"
 ssh "$REMOTE" "cd $REMOTE_DIR && docker compose up -d"
 
 echo ""

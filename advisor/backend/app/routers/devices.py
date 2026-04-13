@@ -34,6 +34,8 @@ class AnnotationOut(BaseModel):
     role: str
     description: str | None
     tags: list[str]
+    classification_source: str | None = None
+    classification_confidence: str | None = None
 
 
 class DeviceOut(BaseModel):
@@ -47,6 +49,13 @@ class DeviceOut(BaseModel):
     is_online: bool
     is_known_device: bool
     monitor_offline: bool
+    os_family: str | None = None
+    os_detail: str | None = None
+    mdns_name: str | None = None
+    netbios_name: str | None = None
+    ssdp_friendly_name: str | None = None
+    ssdp_model: str | None = None
+    last_enriched_at: str | None = None
     annotation: AnnotationOut | None
 
 
@@ -57,6 +66,8 @@ def _device_to_out(device: Device) -> DeviceOut:
             role=device.annotation.role,
             description=device.annotation.description,
             tags=device.annotation.tags or [],
+            classification_source=device.annotation.classification_source,
+            classification_confidence=device.annotation.classification_confidence,
         )
     return DeviceOut(
         id=device.id,
@@ -69,6 +80,13 @@ def _device_to_out(device: Device) -> DeviceOut:
         is_online=device.is_online,
         is_known_device=device.is_known_device,
         monitor_offline=device.monitor_offline,
+        os_family=device.os_family,
+        os_detail=device.os_detail,
+        mdns_name=device.mdns_name,
+        netbios_name=device.netbios_name,
+        ssdp_friendly_name=device.ssdp_friendly_name,
+        ssdp_model=device.ssdp_model,
+        last_enriched_at=device.last_enriched_at.isoformat() + "Z" if device.last_enriched_at else None,
         annotation=ann,
     )
 
@@ -146,12 +164,16 @@ async def update_annotation(mac_address: str, body: AnnotationIn, db: DbDep) -> 
             role=body.role or "unknown",
             description=body.description,
             tags=body.tags or [],
+            classification_source="user" if body.role else None,
+            classification_confidence=None,
         )
         db.add(annotation)
         device.annotation = annotation
     else:
         if body.role is not None:
             device.annotation.role = body.role
+            device.annotation.classification_source = "user"
+            device.annotation.classification_confidence = None
         if body.description is not None:
             device.annotation.description = body.description
         if body.tags is not None:
@@ -182,3 +204,16 @@ async def toggle_monitor_offline(
     await db.commit()
     await db.refresh(device)
     return _device_to_out(device)
+
+
+@router.post("/{mac_address}/re-enrich", status_code=202)
+async def re_enrich_device(mac_address: str, db: DbDep) -> dict:
+    result = await db.execute(
+        select(Device).where(Device.mac_address == mac_address)
+    )
+    device = result.scalar_one_or_none()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    device.last_enriched_at = None
+    await db.commit()
+    return {"message": "Device queued for re-enrichment", "mac_address": mac_address}

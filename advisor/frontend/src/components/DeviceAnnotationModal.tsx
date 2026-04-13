@@ -17,6 +17,36 @@ const ROLES = [
   "unknown",
 ];
 
+function EnrichmentDetail({ device }: { device: Device }) {
+  const fields: { label: string; value: string | null | undefined }[] = [
+    { label: "OS Family", value: device.os_family },
+    { label: "OS Detail", value: device.os_detail },
+    { label: "mDNS Name", value: device.mdns_name },
+    { label: "NetBIOS Name", value: device.netbios_name },
+    { label: "SSDP Friendly Name", value: device.ssdp_friendly_name },
+    { label: "SSDP Model", value: device.ssdp_model },
+    { label: "Classification", value: device.annotation?.classification_source
+        ? `${device.annotation.classification_source}${device.annotation.classification_confidence ? ` (${device.annotation.classification_confidence})` : ""}`
+        : null },
+    { label: "Last Enriched", value: device.last_enriched_at
+        ? new Date(device.last_enriched_at).toLocaleString()
+        : null },
+  ];
+
+  return (
+    <div className="space-y-2">
+      {fields.map(({ label, value }) => (
+        <div key={label} className="flex text-sm">
+          <span className="w-40 flex-shrink-0 text-gray-500">{label}</span>
+          <span className={value ? "text-gray-800" : "text-gray-400"}>
+            {value ?? "—"}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 interface Props {
   device: Device;
   onClose: () => void;
@@ -24,7 +54,7 @@ interface Props {
 }
 
 export function DeviceAnnotationModal({ device, onClose, onSaved }: Props) {
-  const [tab, setTab] = useState<"annotation" | "notes">("annotation");
+  const [tab, setTab] = useState<"annotation" | "identification" | "notes">("annotation");
   const [role, setRole] = useState(device.annotation?.role ?? "unknown");
   const [description, setDescription] = useState(device.annotation?.description ?? "");
   const [tagsInput, setTagsInput] = useState(
@@ -98,6 +128,16 @@ export function DeviceAnnotationModal({ device, onClose, onSaved }: Props) {
             }`}
           >
             Annotation
+          </button>
+          <button
+            onClick={() => setTab("identification")}
+            className={`px-3 py-1.5 text-sm font-medium border-b-2 -mb-px ${
+              tab === "identification"
+                ? "border-blue-600 text-blue-700"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Identification
           </button>
           <button
             onClick={() => setTab("notes")}
@@ -180,6 +220,8 @@ export function DeviceAnnotationModal({ device, onClose, onSaved }: Props) {
                 </button>
               </div>
             </>
+          ) : tab === "identification" ? (
+            <EnrichmentDetail device={device} />
           ) : (
             <NotesList targetType="device" targetId={device.id} />
           )}

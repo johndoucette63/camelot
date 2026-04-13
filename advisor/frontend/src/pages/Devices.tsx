@@ -34,6 +34,18 @@ export function Devices() {
     fetchDevices();
   }
 
+  async function handleRescan(device: Device) {
+    try {
+      const res = await fetch(`/api/devices/${encodeURIComponent(device.mac_address)}/re-enrich`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await fetchDevices();
+    } catch (err) {
+      setError(String(err));
+    }
+  }
+
   async function handleToggleMonitor(device: Device) {
     try {
       const res = await fetch(`/api/devices/${encodeURIComponent(device.mac_address)}/monitor-offline`, {
@@ -87,6 +99,7 @@ export function Devices() {
           devices={devices}
           onRowClick={(device) => setSelectedDevice(device)}
           onToggleMonitor={handleToggleMonitor}
+          onRescan={handleRescan}
         />
       )}
 

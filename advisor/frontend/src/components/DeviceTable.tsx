@@ -15,10 +15,11 @@ interface DeviceTableProps {
   devices: Device[];
   onRowClick?: (device: Device) => void;
   onToggleMonitor?: (device: Device) => void;
+  onRescan?: (device: Device) => void;
 }
 
 
-export function DeviceTable({ devices, onRowClick, onToggleMonitor }: DeviceTableProps) {
+export function DeviceTable({ devices, onRowClick, onToggleMonitor, onRescan }: DeviceTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
 
@@ -55,12 +56,27 @@ export function DeviceTable({ devices, onRowClick, onToggleMonitor }: DeviceTabl
       cell: ({ getValue }) => (getValue() as string | null) ?? <span className="text-gray-400">—</span>,
     },
     {
+      accessorKey: "os_family",
+      header: "OS",
+      cell: ({ getValue }) => (getValue() as string | null) ?? <span className="text-gray-400">—</span>,
+    },
+    {
       id: "role",
       header: "Role",
       accessorFn: (row) => row.annotation?.role ?? "—",
-      cell: ({ getValue }) => (
-        <span className="text-sm capitalize">{getValue() as string}</span>
-      ),
+      cell: ({ row }) => {
+        const role = row.original.annotation?.role ?? "—";
+        const source = row.original.annotation?.classification_source;
+        const isAuto = source && source !== "user";
+        return (
+          <span className="text-sm capitalize">
+            {role}
+            {isAuto && (
+              <span className="ml-1 text-xs text-gray-400 font-normal">(auto)</span>
+            )}
+          </span>
+        );
+      },
     },
     {
       id: "tags",
@@ -103,6 +119,24 @@ export function DeviceTable({ devices, onRowClick, onToggleMonitor }: DeviceTabl
         />
       ),
     },
+    {
+      id: "actions",
+      header: "",
+      enableSorting: false,
+      size: 70,
+      cell: ({ row }) => (
+        <button
+          title="Re-scan this device"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRescan?.(row.original);
+          }}
+          className="px-2 py-0.5 text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded border border-gray-200"
+        >
+          Re-scan
+        </button>
+      ),
+    },
   ];
 
   const table = useReactTable({
@@ -117,7 +151,11 @@ export function DeviceTable({ devices, onRowClick, onToggleMonitor }: DeviceTabl
         (row.original.hostname?.toLowerCase().includes(q) ?? false) ||
         row.original.ip_address.toLowerCase().includes(q) ||
         (row.original.vendor?.toLowerCase().includes(q) ?? false) ||
-        (row.original.annotation?.tags ?? []).some((t) => t.toLowerCase().includes(q))
+        (row.original.annotation?.tags ?? []).some((t) => t.toLowerCase().includes(q)) ||
+        (row.original.os_family?.toLowerCase().includes(q) ?? false) ||
+        (row.original.mdns_name?.toLowerCase().includes(q) ?? false) ||
+        (row.original.netbios_name?.toLowerCase().includes(q) ?? false) ||
+        (row.original.ssdp_friendly_name?.toLowerCase().includes(q) ?? false)
       );
     },
     getCoreRowModel: getCoreRowModel(),

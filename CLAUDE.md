@@ -115,8 +115,11 @@ bash scripts/benchmark-drives.sh
 - PostgreSQL 16 in the existing `advisor_pgdata` Docker volume. Extended via a new Alembic migration `004_recommendations_alerts.py` which (a) adds lifecycle + rule columns to the existing `alerts` table, (b) creates `alert_thresholds`, `rule_mutes`, and `notification_sinks` tables (011-recommendations-alerts)
 - Python 3.12 (backend), TypeScript 5.7 (frontend) + FastAPI 0.115, SQLAlchemy 2.0 async, asyncpg 0.30, Alembic 1.14, httpx 0.28; React 18, Vite 6, Tailwind CSS 3, react-router-dom 7, TanStack React Table 8, react-markdown 10 (012-advisor-learnings-notes)
 - PostgreSQL 16 in existing `advisor_pgdata` Docker volume, extended via Alembic migration `005_advisor_notes.py` (012-advisor-learnings-notes)
+- Python 3.12 (backend + scanner), TypeScript 5.7 (frontend) + FastAPI 0.115, SQLAlchemy 2.0 async, asyncpg 0.30, python-nmap 0.7.1, zeroconf (new), Alembic 1.14; React 18, Vite 6, Tailwind CSS 3, TanStack React Table 8 (013-device-enrichment)
+- PostgreSQL 16 (existing `advisor_pgdata` volume, extended via Alembic migration 007) (013-device-enrichment)
 
 ## Recent Changes
+- 013-device-enrichment: Multi-protocol device enrichment (mDNS/Bonjour, nmap OS/service fingerprinting, SSDP/UPnP), auto-classification engine, enrichment UI (OS column, auto badges, identification detail panel, re-scan per device)
 - 006-ollama-gpu-deployment: Deployed Ollama LLM with GPU acceleration on HOLYGRAIL, Llama 3.1 8B default model, ollama.holygrail hostname routing
 - 005-monitoring-traefik-migration: Migrated Grafana/InfluxDB/Smokeping from Torrentbox to HOLYGRAIL, deployed Traefik reverse proxy with *.holygrail hostname routing
 - 001-ubuntu-migration: Added Bash (POSIX-compatible shell scripts) + Ubuntu Server 24.04 LTS, OpenSSH, UFW, Netplan 1.0
