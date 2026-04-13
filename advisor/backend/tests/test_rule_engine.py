@@ -225,7 +225,9 @@ async def test_cooldown_allows_refire_after_10_minutes(engine_env, monkeypatch):
     assert stats["alerts_created"] == 1, "cool-down expired — refire allowed"
 
     total = await _count_alerts(session_factory)
-    assert total == 2  # the resolved one + a new active one
+    assert total == 1  # re-activated the resolved row (no duplicates)
+    active = await _count_alerts(session_factory, state="active")
+    assert active == 1
 
 
 # ── (f) sustained-window streak drops spikes ───────────────────────────

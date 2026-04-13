@@ -51,6 +51,11 @@ async def _target_label(session, alert: Alert) -> str | None:
 
 
 def _serialize(alert: Alert, label: str | None) -> dict[str, Any]:
+    # Include the device's last_seen so the frontend can compute live downtime.
+    device_last_seen = None
+    if alert.device is not None and alert.device.last_seen is not None:
+        device_last_seen = _iso(alert.device.last_seen)
+
     return {
         "id": alert.id,
         "rule_id": alert.rule_id,
@@ -67,6 +72,7 @@ def _serialize(alert: Alert, label: str | None) -> dict[str, Any]:
         "acknowledged_at": _iso(alert.acknowledged_at),
         "resolved_at": _iso(alert.resolved_at),
         "resolution_source": alert.resolution_source,
+        "device_last_seen": device_last_seen,
     }
 
 

@@ -183,6 +183,7 @@ export interface Alert {
   acknowledged_at: string | null;
   resolved_at?: string | null;
   resolution_source?: AlertResolutionSource | null;
+  device_last_seen?: string | null;
 }
 
 export interface AlertListResponse {

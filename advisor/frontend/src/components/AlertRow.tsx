@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { Alert, AlertSeverity } from "../types";
 
 const SEVERITY_BADGE: Record<AlertSeverity, string> = {
@@ -21,6 +22,53 @@ function formatTime(iso: string | null | undefined): string {
   }
 }
 
+function formatDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes}m`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h < 24) return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  const d = Math.floor(h / 24);
+  const rh = h % 24;
+  return rh > 0 ? `${d}d ${rh}h` : `${d}d`;
+}
+
+function computeDowntimeMinutes(lastSeen: string): number {
+  return Math.max(0, Math.floor((Date.now() - new Date(lastSeen).getTime()) / 60_000));
+}
+
+/** Returns live downtime text for active device_offline alerts. */
+function useLiveDowntime(alert: Alert): string | null {
+  const isLive =
+    alert.rule_id === "device_offline" &&
+    alert.state !== "resolved" &&
+    alert.device_last_seen !== undefined &&
+    alert.device_last_seen !== null;
+
+  const [text, setText] = useState<string | null>(() => {
+    if (!isLive) return null;
+    const label = alert.target_label ?? "Device";
+    const mins = computeDowntimeMinutes(alert.device_last_seen!);
+    return `${label} has been offline for ${formatDuration(mins)}`;
+  });
+
+  useEffect(() => {
+    if (!isLive) {
+      setText(null);
+      return;
+    }
+    const update = () => {
+      const label = alert.target_label ?? "Device";
+      const mins = computeDowntimeMinutes(alert.device_last_seen!);
+      setText(`${label} has been offline for ${formatDuration(mins)}`);
+    };
+    update();
+    const id = setInterval(update, 60_000);
+    return () => clearInterval(id);
+  }, [isLive, alert.device_last_seen, alert.target_label]);
+
+  return text;
+}
+
 interface Props {
   alert: Alert;
   onAcknowledge?: (id: number) => void;
@@ -30,6 +78,7 @@ interface Props {
 export default function AlertRow({ alert, onAcknowledge, onResolve }: Props) {
   const canAck = alert.state === "active";
   const canResolve = alert.state === "active" || alert.state === "acknowledged";
+  const liveMessage = useLiveDowntime(alert);
 
   return (
     <tr className="border-t border-gray-100 align-top" data-testid={`alert-row-${alert.id}`}>
@@ -44,7 +93,7 @@ export default function AlertRow({ alert, onAcknowledge, onResolve }: Props) {
         {alert.target_label ?? alert.rule_name}
       </td>
       <td className="px-3 py-2 text-sm text-gray-800 max-w-[40ch] truncate">
-        {alert.message}
+        {liveMessage ?? alert.message}
       </td>
       <td
         className={`px-3 py-2 text-xs font-medium ${STATE_CLASS[alert.state] ?? ""}`}

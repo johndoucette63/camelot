@@ -242,13 +242,15 @@ def _service_id_for(result: RuleResult) -> int | None:
 async def _insert_alert(
     session, rule: Rule, result: RuleResult, *, suppressed: bool, now: datetime
 ) -> int | None:
-    """Insert a new alert row, respecting the (rule_id, target_type, target_id)
-    dedup rule enforced in prod by a partial unique index.
+    """Insert a new alert row or re-activate the most recent resolved alert
+    for the same (rule_id, target_type, target_id).
 
-    In production the migration adds the partial unique index; here we also
-    do an application-level check so the code works on SQLite in tests
-    (which doesn't carry over the ``postgresql_where`` clause). The advisor
-    runs a single backend process, so there is no race to worry about.
+    Re-activation prevents duplicate rows for flapping devices — each
+    (rule, target) combo gets at most one row that toggles between active
+    and resolved.
+
+    In production a partial unique index enforces uniqueness for active
+    rows; the application-level check covers SQLite in tests.
     """
     rid = _result_rule_id(rule, result)
 
@@ -266,6 +268,37 @@ async def _insert_alert(
     existing = (await session.execute(existing_q.limit(1))).scalar_one_or_none()
     if existing is not None:
         return None
+
+    # Try to re-activate the most recent resolved alert for this target
+    # instead of creating a new row. This eliminates duplicate IPs in the
+    # alert list caused by devices that flap between online and offline.
+    reactivate_q = (
+        select(Alert)
+        .where(
+            Alert.rule_id == rid,
+            Alert.target_type == result.target_type,
+            Alert.state == "resolved",
+        )
+        .order_by(Alert.resolved_at.desc())
+    )
+    if result.target_id is None:
+        reactivate_q = reactivate_q.where(Alert.target_id.is_(None))
+    else:
+        reactivate_q = reactivate_q.where(Alert.target_id == result.target_id)
+    resolved_alert = (
+        await session.execute(reactivate_q.limit(1))
+    ).scalar_one_or_none()
+
+    if resolved_alert is not None:
+        resolved_alert.state = "active"
+        resolved_alert.message = result.message
+        resolved_alert.created_at = now
+        resolved_alert.acknowledged_at = None
+        resolved_alert.resolved_at = None
+        resolved_alert.resolution_source = None
+        resolved_alert.suppressed = suppressed
+        await session.flush()
+        return resolved_alert.id
 
     alert = Alert(
         device_id=_device_id_for(result),
