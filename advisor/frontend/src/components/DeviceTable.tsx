@@ -14,10 +14,11 @@ import type { Device } from "../types";
 interface DeviceTableProps {
   devices: Device[];
   onRowClick?: (device: Device) => void;
+  onToggleMonitor?: (device: Device) => void;
 }
 
 
-export function DeviceTable({ devices, onRowClick }: DeviceTableProps) {
+export function DeviceTable({ devices, onRowClick, onToggleMonitor }: DeviceTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
 
@@ -82,6 +83,25 @@ export function DeviceTable({ devices, onRowClick }: DeviceTableProps) {
           </div>
         );
       },
+    },
+    {
+      id: "monitor_offline",
+      header: "Monitor",
+      enableSorting: false,
+      size: 70,
+      cell: ({ row }) => (
+        <input
+          type="checkbox"
+          checked={row.original.monitor_offline}
+          title={row.original.monitor_offline ? "Offline monitoring enabled" : "Offline monitoring disabled"}
+          onChange={(e) => {
+            e.stopPropagation();
+            onToggleMonitor?.(row.original);
+          }}
+          onClick={(e) => e.stopPropagation()}
+          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+        />
+      ),
     },
   ];
 

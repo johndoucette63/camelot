@@ -5,7 +5,11 @@ address, detects network events (new-device, offline, back-online, scan-error),
 and records each scan pass in the Scan table.
 """
 
+import fcntl
 import logging
+import os
+import socket
+import struct
 from datetime import datetime, timezone
 
 import nmap
@@ -33,6 +37,42 @@ async def _vendor_for_mac(mac: str) -> str | None:
         return await _mac_lookup.lookup(mac)
     except Exception:
         return None
+
+
+def _local_interface_macs() -> dict[str, str]:
+    """Return ``{ip: MAC}`` for all local non-loopback interfaces.
+
+    Works on Linux by reading ``/sys/class/net/``.  Returns an empty dict
+    on non-Linux hosts or on any permission error.
+    """
+    result: dict[str, str] = {}
+    try:
+        for iface in os.listdir("/sys/class/net/"):
+            if iface == "lo":
+                continue
+            addr_path = f"/sys/class/net/{iface}/address"
+            if not os.path.exists(addr_path):
+                continue
+            with open(addr_path) as f:
+                mac = f.read().strip().upper()
+            if mac == "00:00:00:00:00:00":
+                continue
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                ip = socket.inet_ntoa(
+                    fcntl.ioctl(
+                        s.fileno(),
+                        0x8915,  # SIOCGIFADDR
+                        struct.pack("256s", iface.encode()[:15]),
+                    )[20:24]
+                )
+                s.close()
+                result[ip] = mac
+            except OSError:
+                continue
+    except OSError:
+        pass
+    return result
 
 
 async def run_scan(db: AsyncSession, target: str = "192.168.10.0/24") -> Scan:
@@ -73,14 +113,20 @@ async def run_scan(db: AsyncSession, target: str = "192.168.10.0/24") -> Scan:
 
     # Collect responding hosts: {mac: {ip, hostname, vendor}}
     found_macs: dict[str, dict] = {}
+    local_macs = _local_interface_macs()
     for host in nm.all_hosts():
         addresses = nm[host].get("addresses", {})
         mac = addresses.get("mac")
         if not mac:
-            # nmap doesn't return MAC for the scan host (ARP not used for local host)
-            # Skip it — the host is already a known device in the DB
-            logger.debug("Skipping host with no MAC (scanner host)", extra={"ip": host})
-            continue
+            # nmap can't ARP the scanner's own host.  Look up the MAC
+            # from the local network interface instead so the scanner
+            # host is tracked like every other device.
+            mac = local_macs.get(host)
+            if not mac:
+                logger.debug(
+                    "Skipping host with no MAC", extra={"ip": host}
+                )
+                continue
 
         hostname_info = nm[host].get("hostnames", [{}])
         hostname = hostname_info[0].get("name") if hostname_info else None

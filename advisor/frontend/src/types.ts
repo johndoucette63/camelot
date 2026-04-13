@@ -14,6 +14,7 @@ export interface Device {
   last_seen: string;
   is_online: boolean;
   is_known_device: boolean;
+  monitor_offline: boolean;
   annotation: Annotation | null;
 }
 

@@ -19,6 +19,7 @@ class Device(Base):
     is_online: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=False)
     consecutive_missed_scans: Mapped[int] = mapped_column(Integer(), nullable=False, default=0)
     is_known_device: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=False)
+    monitor_offline: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=True)
 
     annotation: Mapped["Annotation"] = relationship(  # noqa: F821
         back_populates="device", uselist=False, cascade="all, delete-orphan"

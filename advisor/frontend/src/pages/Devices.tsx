@@ -34,6 +34,20 @@ export function Devices() {
     fetchDevices();
   }
 
+  async function handleToggleMonitor(device: Device) {
+    try {
+      const res = await fetch(`/api/devices/${encodeURIComponent(device.mac_address)}/monitor-offline`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ monitor_offline: !device.monitor_offline }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await fetchDevices();
+    } catch (err) {
+      setError(String(err));
+    }
+  }
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-4">
@@ -72,6 +86,7 @@ export function Devices() {
         <DeviceTable
           devices={devices}
           onRowClick={(device) => setSelectedDevice(device)}
+          onToggleMonitor={handleToggleMonitor}
         />
       )}
 

@@ -46,6 +46,7 @@ class DeviceOut(BaseModel):
     last_seen: str
     is_online: bool
     is_known_device: bool
+    monitor_offline: bool
     annotation: AnnotationOut | None
 
 
@@ -67,6 +68,7 @@ def _device_to_out(device: Device) -> DeviceOut:
         last_seen=device.last_seen.isoformat() + "Z",
         is_online=device.is_online,
         is_known_device=device.is_known_device,
+        monitor_offline=device.monitor_offline,
         annotation=ann,
     )
 
@@ -155,6 +157,28 @@ async def update_annotation(mac_address: str, body: AnnotationIn, db: DbDep) -> 
         if body.tags is not None:
             device.annotation.tags = body.tags
 
+    await db.commit()
+    await db.refresh(device)
+    return _device_to_out(device)
+
+
+class MonitorOfflineIn(BaseModel):
+    monitor_offline: bool
+
+
+@router.patch("/{mac_address}/monitor-offline", response_model=DeviceOut)
+async def toggle_monitor_offline(
+    mac_address: str, body: MonitorOfflineIn, db: DbDep
+) -> DeviceOut:
+    result = await db.execute(
+        select(Device)
+        .options(selectinload(Device.annotation))
+        .where(Device.mac_address == mac_address)
+    )
+    device = result.scalar_one_or_none()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    device.monitor_offline = body.monitor_offline
     await db.commit()
     await db.refresh(device)
     return _device_to_out(device)
