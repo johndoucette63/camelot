@@ -32,7 +32,7 @@ def _now() -> datetime:
 def _device(
     *,
     id: int = 1,
-    mac: str = "aa:bb:cc:00:00:01",
+    mac: str = "a0:bb:cc:00:00:01",
     ip: str = "192.168.10.10",
     hostname: str | None = "pi-test",
     vendor: str | None = "Raspberry Pi Trading Ltd",
@@ -51,6 +51,7 @@ def _device(
         is_online=is_online,
         consecutive_missed_scans=0,
         is_known_device=False,
+        monitor_offline=True,
     )
     d.id = id
     return d

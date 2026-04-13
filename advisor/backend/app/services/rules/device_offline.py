@@ -34,30 +34,19 @@ class DeviceOfflineRule(Rule):
         window = timedelta(minutes=float(minutes))
         cutoff = ctx.now - window
 
-        results: list[RuleResult] = []
+        # When DHCP reassigns an IP or hardware changes, multiple device rows
+        # can share the same IP.  Only alert for the most-recently-seen device
+        # per IP so the same address doesn't appear twice in the alert list.
+        best_by_ip: dict[str, tuple] = {}
+
+        candidates = []
         for device in ctx.devices:
-            # Never-seen devices are skipped to avoid false positives on the
-            # first scan after deploy. A device is "seen" if it has a
-            # last_seen timestamp.
             if device.last_seen is None or device.first_seen is None:
                 continue
-
-            # Skip devices with locally-administered (randomized) MACs.
-            # Apple devices rotate MACs for privacy, creating ghost records
-            # that will always appear offline once the MAC rotates.
             if _has_random_mac(device.mac_address):
                 continue
-
-            # Skip devices where offline monitoring is disabled via the UI.
             if not device.monitor_offline:
                 continue
-
-            # Authoritative offline check: trust the scanner's is_online flag.
-            # The threshold acts as a grace period — only alert once the
-            # device has been continuously offline for ≥ threshold minutes,
-            # measured from when the scanner last saw it. This avoids false
-            # positives for devices whose last_seen is stale only because
-            # the scan interval is longer than the threshold.
             if device.is_online:
                 continue
 
@@ -68,6 +57,13 @@ class DeviceOfflineRule(Rule):
             if last_seen >= cutoff:
                 continue
 
+            ip = device.ip_address
+            prev = best_by_ip.get(ip)
+            if prev is None or last_seen > prev[1]:
+                best_by_ip[ip] = (device, last_seen)
+
+        results: list[RuleResult] = []
+        for device, last_seen in best_by_ip.values():
             label = device.hostname or device.ip_address
             gap_minutes = int((ctx.now - last_seen).total_seconds() / 60)
             results.append(
