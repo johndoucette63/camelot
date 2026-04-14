@@ -84,28 +84,13 @@ This is a documentation + external-service configuration feature. Most "files" a
 
 ---
 
-## Phase 4: User Story 2 - Onboard Paid Indexers in Prowlarr (Priority: P2)
+## Phase 4: User Story 2 - Onboard Paid Indexers in Prowlarr (Priority: P2) — MOVED TO F9.1
 
-**Goal**: Evaluate ≥ 3 candidate paid indexers, sign up for the chosen one(s), configure them in Prowlarr with credentials, confirm app-sync propagates them to Sonarr and Radarr, route CloudFlare-gated indexers through FlareSolverr, and observe them healthy in Prowlarr.
+**STATUS**: Pulled out of 014 on 2026-04-14 and parked under [F9.1 — Paid Indexer Evaluation](../../docs/F9.1-paid-indexer-evaluation.md). The conflict that triggered the move: IPTorrents (and every other reputable paid private tracker for video content) requires a sustained ≥1:1 seed ratio, which is incompatible with the no-seed Deluge policy (`stop_seed_ratio=0.0`, `remove_seed_at_ratio=true`) that's intentional per the user's preference.
 
-**Independent Test**: `quickstart.md` steps 2.1–2.7 — confirm indexer present and tested, visible in both Sonarr and Radarr with the Prowlarr badge, CloudFlare path (if applicable) returns results, Prowlarr Health shows OK, search hits a new source, and a baseline-seeder number is written into `docs/indexer-evaluation.md`.
+The original tasks T021–T030 are not deleted from history (visible in earlier commits on this branch) but are no longer in 014's scope. Re-entry triggers and the option matrix (drop trackers, hybrid Deluge label, seedbox front-end, etc.) live in F9.1.
 
-**Scope maps to**: FR-006, FR-007, FR-008, FR-009, FR-010, FR-011, FR-017 · SC-002, SC-003, SC-007, SC-008. Depends on Phase 2 (app-sync verified).
-
-### Implementation for User Story 2
-
-- [ ] T021 [P] [US2] Draft [docs/indexer-evaluation.md](../../docs/indexer-evaluation.md) — the evaluation record. Include a candidates table (≥ 3 rows, e.g., IPTorrents, TorrentLeech, BTN, HDBits, FileList) with columns: name, approximate annual cost, content strengths, signup gating, Prowlarr native support (yes/no), CloudFlare status. Use `research.md` R1 as the authoritative source; copy the comparison verbatim where accurate, do **not** invent numbers. (FR-006.) **Do not include any credentials, API keys, cookies, or invite codes.** (FR-017.)
-- [ ] T022 [US2] In `docs/indexer-evaluation.md`, add a "Selection Decision" section naming the chosen indexer(s) (default: IPTorrents; add TorrentLeech opportunistically if a donation window is open). Write one paragraph of rationale citing cost, catalog fit, and gating friction, per `research.md` R1. Leave a placeholder "30-day Review" heading at the bottom for post-launch numbers. (FR-007.) Depends on T021.
-- [ ] T023 [US2] Create the account on the selected paid indexer (e.g., IPTorrents donation signup at https://www.iptorrents.com). Retrieve the credentials needed for Prowlarr's Cardigann definition (typically cookie + optional passkey, or username/password depending on the definition). **Store these only in a password manager; never write them to a repo file.** This is a human-loop step; mark complete once the account is confirmed active and credentials are captured locally.
-- [ ] T024 [US2] Add the indexer to Prowlarr (UI → Indexers → Add Indexer → select from the Cardigann list). Enter credentials from T023, set `enable = true`, add tags `tv` and `movies`. If the site requires CloudFlare bypass, also add the `flaresolverr` tag so Prowlarr routes through the proxy verified in T009. (FR-008, FR-010.) Depends on T023.
-- [ ] T025 [US2] Run Prowlarr's built-in Test against the new indexer (UI → Indexers → row → Test button). Must return green. If it fails, diagnose per `research.md` R4 — most common causes are wrong cookie, missing FlareSolverr tag on a CF-gated site, or expired signup token. Do not proceed until green. (FR-008.) Depends on T024.
-- [ ] T026 [US2] Force the Prowlarr → Sonarr/Radarr app sync: `curl -sSH "X-Api-Key: $PROWLARR_API_KEY" -X POST -H "Content-Type: application/json" -d '{"name":"ApplicationIndexerSync"}' http://192.168.10.141:9696/api/v1/command`. Then verify in both Sonarr (UI → Settings → Indexers) and Radarr that the new indexer appears with the Prowlarr badge (read-only). (FR-009.) Depends on T025.
-- [ ] T027 [US2] Run a behavioral search to confirm the new indexer contributes results: pick a recent episode in Sonarr → Interactive Search → verify at least one row shows the new indexer in the "Indexer" column. Repeat in Radarr with a recent movie. (US-2 acceptance scenario 3.) Depends on T026.
-- [ ] T028 [US2] Record the post-change baseline that will feed SC-002/SC-003: append today's date, the candidate list from `research.md` R1 verbatim as context, and the baseline-seeder numbers from T007 (pre-change) plus today's seeder numbers (post-change snapshot) to `docs/indexer-evaluation.md`. The 30-day comparison will be added after the follow-up window. (SC-002, SC-003.) Depends on T007, T026.
-- [ ] T029 [US2] Update [docs/INFRASTRUCTURE.md](../../docs/INFRASTRUCTURE.md) — in the existing "Prowlarr Apps" / indexer section, list the newly added paid indexer(s) by name only, with no credentials. Add a line pointing readers to `docs/indexer-evaluation.md` for the rationale. (FR-017, SC-008.) **Shared file — serialize with T019 and T039.**
-- [ ] T030 [US2] Run `quickstart.md` **US-2 Validation** steps 2.1 through 2.7. Tick every checkbox. The T+30d follow-up subsection remains open; everything else must pass now.
-
-**Checkpoint**: Paid indexer is live, tested, synced to both apps, healthy, and documented. The system is measurably better than before (qualitatively — SC-002/SC-003 quantitative confirmation waits 30 days).
+**Re-enter F9.1 if**: T+30d F5.1 follow-up shows search hit-rate < 90% (SC-003), seeder regressions, or a recurring "only on private trackers" gap.
 
 ---
 

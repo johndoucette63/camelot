@@ -239,6 +239,21 @@ Comprehensive network visibility and optimization.
 
 ---
 
+### Phase 9 — Future Enhancements (parking lot)
+
+**Status: deferred queue**
+**Prerequisite: per-feature**
+
+Items pulled out of active features when scope, dependencies, or trade-offs warrant a separate decision later. Each entry has its own re-entry trigger.
+
+| Step | Task                    | Spec                                    |
+|------|-------------------------|-----------------------------------------|
+| 9.1  | Paid indexer evaluation | [F9.1](F9.1-paid-indexer-evaluation.md) |
+
+**9.1 context**: pulled from F5.1 US-2 when IPTorrents' 1:1 ratio requirement was found incompatible with the no-seed Deluge policy. Re-enter if T+30d F5.1 metrics show search hit-rate < 90% (SC-003) or seeder-count regressions.
+
+---
+
 ## Phase Dependencies
 
 ```mermaid

@@ -24,21 +24,9 @@ As a media consumer, I want Sonarr and Radarr to automatically prefer high-quali
 
 ---
 
-### User Story 2 - Onboard paid indexers in Prowlarr (Priority: P2)
+### User Story 2 - Onboard paid indexers in Prowlarr (Priority: P2) — MOVED TO F9.1
 
-As a media consumer, I want at least one paid private indexer evaluated, signed up for, and wired into Prowlarr so that Sonarr and Radarr can search a larger, better-seeded catalog automatically.
-
-**Why this priority**: Private indexers substantially expand content availability and seeder counts, but they carry recurring cost, signup effort, and in some cases invite/interview gating, so they come after the free quality-profile win. Without quality profiles (P1) in place first, better indexers would just surface more random-quality releases.
-
-**Independent Test**: After selecting and adding the indexer, run a Prowlarr test on it, confirm Sonarr and Radarr can see it in their indexer list via the Prowlarr sync, and run a search in each for a recent TV episode and a recent movie, confirming results include entries from the new indexer.
-
-**Acceptance Scenarios**:
-
-1. **Given** at least three candidate paid indexers, **When** their cost, content catalog, seeder health, and signup gating are compared, **Then** a documented selection decision exists with rationale captured in project docs.
-2. **Given** a selected indexer with an active account, **When** the indexer is added to Prowlarr with credentials/API key, **Then** Prowlarr's built-in test passes for that indexer.
-3. **Given** Prowlarr has a new indexer configured, **When** app sync runs, **Then** the same indexer appears in both Sonarr and Radarr without manual re-entry, and searches from those apps return results from it.
-4. **Given** a CloudFlare-protected indexer is among those configured, **When** Prowlarr queries it, **Then** FlareSolverr handles the challenge transparently and results are returned.
-5. **Given** the indexer is active for at least 7 days, **When** grab history is reviewed, **Then** availability (hit rate on searches) and seeder counts have measurably improved compared to the public-only baseline.
+**STATUS (2026-04-14)**: Out of 014's scope. Pulled to [`docs/F9.1-paid-indexer-evaluation.md`](../../docs/F9.1-paid-indexer-evaluation.md) when the IPTorrents 1:1 ratio requirement was found incompatible with the user's intentional no-seed Deluge policy. Acceptance scenarios 1–5 (the original 5 below in version control history) and the related FRs (FR-006, FR-007, FR-008, FR-009, FR-010, FR-011) are not deleted but are no longer 014 deliverables. SC-002, SC-003, SC-007 will be re-evaluated at T+30d using the F5.1 US-1 (quality profiles) baseline alone; if a real gap shows up, F9.1 picks up the question with the option matrix already laid out.
 
 ---
 
