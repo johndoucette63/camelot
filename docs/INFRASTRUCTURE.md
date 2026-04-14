@@ -346,6 +346,34 @@ sudo systemctl restart openvpn@pia
 | Web password | subterra |
 | Daemon password | subterra |
 
+### Quality Profiles (Sonarr + Radarr)
+
+Both apps run the `HD Bluray + WEB` profile (Sonarr id=8, Radarr id=7) as the intended default for new series/movies. Storage-conscious: hard cap ~10 GB per file, preferred 3–6 GB band. See [specs/014-indexers-quality/](../specs/014-indexers-quality/) for rationale.
+
+| Setting | Value |
+|---------|-------|
+| Profile name | HD Bluray + WEB |
+| Allowed tiers | Bluray-1080p, WEBDL-1080p, WEBRip-1080p (others disabled incl. Remux, HDTV, SD) |
+| Priority order (top = highest) | Bluray-1080p > WEBDL-1080p ≈ WEBRip-1080p (WEB tier grouped) |
+| Upgrade cutoff | Bluray-1080p (quality.id=7) |
+| `cutoffFormatScore` / `minFormatScore` | 10000 / 0 (unreachable CF cutoff — upgrades continue to Bluray, then stop) |
+| `upgradeAllowed` | true |
+
+Size caps (MB/min):
+
+| Media | Tier | min | preferred | max | Implied ceiling at typical runtime |
+|-------|------|-----|-----------|-----|-----------------------------------|
+| TV (Sonarr) | WEBDL-1080p, WEBRip-1080p | 15 | 45 | 80 | 60-min ep ≤ 4.8 GB |
+| TV (Sonarr) | Bluray-1080p | 50 | 55 | 80 | 60-min ep ≤ 4.8 GB |
+| Movies (Radarr) | WEBDL-1080p, WEBRip-1080p | 15 | 45 | 55 | 180-min epic ≤ 9.9 GB |
+| Movies (Radarr) | Bluray-1080p | 50 | 50 | 55 | 180-min epic ≤ 9.9 GB |
+
+Effect: WEB-DL at 40–55 MB/min is the typical grab; high-bitrate Bluray encodes (80+ MB/min) are rejected in favor of WEB-DL. Intended trade-off — storage balance over last-increment quality.
+
+TRaSH Custom Formats are NOT imported. In-tier ranking is by profile tier order only. If fine-grained ranking (release-group preferences, HDR flavor, repack/proper) is wanted later, install Recyclarr and sync the `HD Bluray + WEB` template against this profile. Reference: <https://trash-guides.info/Sonarr/sonarr-setup-quality-profiles/>.
+
+Note: Sonarr 4.x and Radarr 6.x no longer support a server-side "default quality profile" per root folder. The profile is selectable in the Add Series / Add Movie dropdown; the UI remembers the last-used choice per browser.
+
 ---
 
 ## NAS Server (192.168.10.105)

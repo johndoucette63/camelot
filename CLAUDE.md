@@ -117,6 +117,8 @@ bash scripts/benchmark-drives.sh
 - PostgreSQL 16 in existing `advisor_pgdata` Docker volume, extended via Alembic migration `005_advisor_notes.py` (012-advisor-learnings-notes)
 - Python 3.12 (backend + scanner), TypeScript 5.7 (frontend) + FastAPI 0.115, SQLAlchemy 2.0 async, asyncpg 0.30, python-nmap 0.7.1, zeroconf (new), Alembic 1.14; React 18, Vite 6, Tailwind CSS 3, TanStack React Table 8 (013-device-enrichment)
 - PostgreSQL 16 (existing `advisor_pgdata` volume, extended via Alembic migration 007) (013-device-enrichment)
+- N/A — this feature makes configuration changes to existing containerized services. A small verification helper may be written in Python 3.12 (already installed on the Mac) to query the Sonarr/Radarr/Prowlarr REST APIs during quickstart validation, but no new long-running code is produced. + Existing Torrentbox stack — `linuxserver/sonarr`, `linuxserver/radarr`, `linuxserver/prowlarr`, `linuxserver/deluge`, `ghcr.io/flaresolverr/flaresolverr`. Existing PIA VPN container. No new images. (014-indexers-quality)
+- Container config volumes already mounted at `/home/john/docker/{sonarr,radarr,prowlarr,deluge}` on Torrentbox. No database changes. No repo-committed configuration files for indexer credentials. (014-indexers-quality)
 
 ## Recent Changes
 - 013-device-enrichment: Multi-protocol device enrichment (mDNS/Bonjour, nmap OS/service fingerprinting, SSDP/UPnP), auto-classification engine, enrichment UI (OS column, auto badges, identification detail panel, re-scan per device)
