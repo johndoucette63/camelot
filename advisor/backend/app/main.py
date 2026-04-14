@@ -22,6 +22,7 @@ from app.routers import (
     scans,
     services,
     settings as settings_router,
+    vpn,
 )
 from app.services import rule_engine
 from app.services.health_checker import run_health_checker
@@ -94,3 +95,4 @@ app.include_router(notes.router, prefix="/notes", tags=["notes"])
 app.include_router(recommendations.router)
 app.include_router(alerts.router)
 app.include_router(settings_router.router)
+app.include_router(vpn.router)
