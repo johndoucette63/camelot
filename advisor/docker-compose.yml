@@ -25,6 +25,10 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Host SSH key for the vpn_leak watchdog (ssh torrentbox docker exec ...).
+      # Mounted at /etc/ssh-keys; entrypoint.sh copies into /root/.ssh with
+      # correct ownership (openssh refuses cross-owner key files).
+      - /home/john/.ssh:/etc/ssh-keys:ro
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-john}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-advisor}}
       # Default to the ollama container hostname on the holygrail-proxy
@@ -32,6 +36,9 @@ services:
       # only needed for LAN-facing browser traffic, not container→container).
       OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b}
+      # VPN watchdog probe target — uses host's ~/.ssh/config alias
+      VPN_PROBE_SSH_TARGET: ${VPN_PROBE_SSH_TARGET:-torrentbox}
+      VPN_LEAK_DENYLIST_IPS: ${VPN_LEAK_DENYLIST_IPS:-67.176.27.48}
       TZ: ${TZ:-America/Denver}
     depends_on:
       postgres:

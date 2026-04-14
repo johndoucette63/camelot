@@ -11,6 +11,7 @@ from app.services.rules.ollama_unavailable import OllamaUnavailableRule
 from app.services.rules.pi_cpu_high import PiCpuHighRule
 from app.services.rules.service_down import ServiceDownRule
 from app.services.rules.unknown_device import UnknownDeviceRule
+from app.services.rules.vpn_leak import VpnLeakRule
 
 RULES: list[Rule] = [
     PiCpuHighRule(),
@@ -19,4 +20,5 @@ RULES: list[Rule] = [
     DeviceOfflineRule(),
     OllamaUnavailableRule(),
     UnknownDeviceRule(),
+    VpnLeakRule(),
 ]

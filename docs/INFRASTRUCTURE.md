@@ -312,28 +312,33 @@ NAS credentials: `/etc/nas-credentials` (chmod 600)
 
 Network access: `\\192.168.10.141\Media`
 
-### VPN Configuration
+### VPN Configuration (gluetun sidecar — feature 015)
 
-PIA VPN with kill-switch enabled.
+Deluge runs in `network_mode: service:gluetun`; gluetun owns the netns and enforces a default-deny kill-switch via its built-in firewall. Kill-switch verified via 5-test matrix (research R5 T1–T5) at deploy time.
 
 | Setting | Value |
 |---------|-------|
-| Config | /etc/openvpn/pia.conf |
-| Server | us-denver.privacy.network:1197 |
-| Protocol | UDP |
-| Cipher | AES-256-CBC |
+| Image | `qmcgaw/gluetun:v3.40.0` (pinned) |
+| Provider | private internet access (PIA) |
+| Protocol | OpenVPN UDP (PIA does not yet support WireGuard via gluetun native) |
+| Region | CA Toronto (closest PF-capable region; PIA US has no port-forwarding) |
+| Kill-switch | gluetun `FIREWALL=on`, `FIREWALL_OUTBOUND_SUBNETS=192.168.10.0/24` |
+| Port forwarding | gluetun-managed; host cron pushes port to Deluge `listen_ports` |
+| Credentials | `/home/john/docker/.env` (gitignored) |
+| Persistent state | `/home/john/docker/gluetun/` (60-day PIA PF token survives restarts) |
+| Repo source | `infrastructure/torrentbox/` |
 
-**Kill-switch script** (`/etc/openvpn/vpn-up.sh`):
-- Allows loopback and local network (192.168.10.0/24)
-- Allows Docker network (172.16.0.0/12)
-- Allows VPN tunnel traffic
-- Blocks all other outbound traffic
-
-**Service management:**
+**Operations:**
 ```bash
-sudo systemctl status openvpn@pia
-sudo systemctl restart openvpn@pia
+ssh torrentbox "docker exec deluge curl -s ifconfig.me"               # PIA exit IP
+ssh torrentbox "docker exec deluge deluge-console -c /config 'config listen_ports'"
+ssh torrentbox "docker logs gluetun --tail 30"
+ssh torrentbox "cat /home/john/docker/gluetun-port-hook.log | tail"   # Port poller log
 ```
+
+**Watchdog**: HOLYGRAIL Advisor runs the `vpn_leak` rule that probes Deluge's external IP every cycle via SSH. If the observed IP matches the denylist (default: home WAN `67.176.27.48`), it fires a critical alert; after 3 consecutive leaks, it auto-stops the deluge container. Surfaced on the Advisor dashboard as a 6-state VPN status card + top-nav pill.
+
+**Legacy (decommissioned 2026-04-14)**: `openvpn@pia.service` is stopped (will be archived to `/etc/openvpn/legacy-014/` after 7 days of stable sidecar operation per the 015 spec gate).
 
 ### Deluge Settings
 

@@ -69,6 +69,16 @@ class _Streak:
 
 _STREAKS: dict[tuple[str, str, int | None], _Streak] = {}
 
+# Escalation tracker for rules that opt in via Rule.escalation_threshold.
+# Keys are the same shape as _STREAKS (rule_id, target_type, target_id).
+# _ESCALATION_COUNTS: how many consecutive cycles have produced a result
+# for this key. _ESCALATION_FIRED: keys that have already invoked
+# on_escalate in the current breach episode (reset on auto-resolve).
+# In-memory only — see 015 spec data-model.md E5 "Escalation counter
+# persistence — explicit tradeoff".
+_ESCALATION_COUNTS: dict[tuple[str, str, int | None], int] = {}
+_ESCALATION_FIRED: set[tuple[str, str, int | None]] = set()
+
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
@@ -345,7 +355,43 @@ async def _auto_resolve(
         alert.resolved_at = now
         alert.resolution_source = "auto"
         resolved += 1
+        # Reset escalation state for the cleared key so the next breach
+        # episode starts fresh.
+        _ESCALATION_COUNTS.pop(key, None)
+        _ESCALATION_FIRED.discard(key)
     return resolved
+
+
+async def _maybe_escalate(
+    rule: Rule, result: RuleResult, ctx: RuleContext
+) -> RuleResult | None:
+    """Track per-target consecutive-fire counts; invoke on_escalate once
+    when the threshold is hit.
+
+    Returns a follow-up RuleResult (typically with rule_id_override set to
+    "<rule_id>:remediation") or None. The caller is responsible for
+    feeding the returned result back through the normal alert pipeline.
+    """
+    if rule.escalation_threshold is None:
+        return None
+
+    rid = _result_rule_id(rule, result)
+    key = _streak_key(rid, result)
+    _ESCALATION_COUNTS[key] = _ESCALATION_COUNTS.get(key, 0) + 1
+
+    if (
+        _ESCALATION_COUNTS[key] >= rule.escalation_threshold
+        and key not in _ESCALATION_FIRED
+    ):
+        _ESCALATION_FIRED.add(key)
+        try:
+            return await rule.on_escalate(result, ctx)
+        except Exception:  # noqa: BLE001 — escalation must not crash the cycle
+            logger.exception(
+                "rule_engine.escalation.error",
+                extra={"event": "rule_engine.escalation.error", "rule_id": rid},
+            )
+    return None
 
 
 async def _prune_old_alerts(session, now: datetime) -> int:
@@ -440,6 +486,7 @@ async def run_cycle(app) -> dict:
             after_cooldown = await _filter_cooldown(session, rule, sustained, ctx.now)
 
             currently_breaching: set[tuple[str, str, int | None]] = set()
+            escalation_followups: list[RuleResult] = []
             for result in after_cooldown:
                 rid = _result_rule_id(rule, result)
                 currently_breaching.add(
@@ -449,6 +496,33 @@ async def run_cycle(app) -> dict:
                 muted = await _is_muted(session, rule, result, ctx.now)
                 inserted_id = await _insert_alert(
                     session, rule, result, suppressed=muted, now=ctx.now
+                )
+                if inserted_id is not None:
+                    if muted:
+                        stats["alerts_suppressed"] += 1
+                    else:
+                        new_alert_ids.append(inserted_id)
+                        stats["alerts_created"] += 1
+
+                # Check for escalation only after the alert has been recorded
+                # (don't escalate suppressed/muted breaches).
+                if not muted:
+                    followup = await _maybe_escalate(rule, result, ctx)
+                    if followup is not None:
+                        escalation_followups.append(followup)
+
+            # Emit escalation follow-up RuleResults (typically remediation
+            # alerts) through the same alert pipeline. Track them for
+            # currently_breaching so auto-resolve doesn't immediately clear
+            # them on the next cycle.
+            for followup in escalation_followups:
+                rid = _result_rule_id(rule, followup)
+                currently_breaching.add(
+                    (rid, followup.target_type, followup.target_id)
+                )
+                muted = await _is_muted(session, rule, followup, ctx.now)
+                inserted_id = await _insert_alert(
+                    session, rule, followup, suppressed=muted, now=ctx.now
                 )
                 if inserted_id is not None:
                     if muted:

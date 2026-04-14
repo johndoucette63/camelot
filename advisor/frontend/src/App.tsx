@@ -7,6 +7,7 @@ import { Services } from "./pages/Services";
 import Alerts from "./pages/Alerts";
 import Playbook from "./pages/Playbook";
 import Settings from "./pages/Settings";
+import NavStatusPill from "./components/NavStatusPill";
 
 function Nav() {
   const location = useLocation();
@@ -27,6 +28,7 @@ function Nav() {
       <Link to="/playbook" className={linkClass("/playbook")}>Playbook</Link>
       <Link to="/chat" className={linkClass("/chat")}>Chat</Link>
       <Link to="/settings" className={linkClass("/settings")}>Settings</Link>
+      <NavStatusPill />
     </nav>
   );
 }

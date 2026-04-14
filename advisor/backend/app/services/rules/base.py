@@ -59,12 +59,39 @@ class Rule:
 
     Subclasses override ``id``, ``name``, ``severity``, optionally
     ``sustained_window``, and implement ``evaluate``.
+
+    Optional escalation hook: subclasses may set ``escalation_threshold`` to
+    an integer N and override ``on_escalate`` to opt in to per-target
+    escalation handling. The engine increments a per-(rule_id, target)
+    consecutive-fire counter and, on hitting N, invokes ``on_escalate``
+    exactly once per breach episode (reset on auto-resolve). The optional
+    return value of ``on_escalate`` becomes a follow-up RuleResult emitted
+    by the engine on the same cycle (typically with rule_id_override set
+    to ``"<rule_id>:remediation"`` so it is distinguishable).
+
+    Escalation count is in-memory only — see 015 spec data-model.md E5
+    "Escalation counter persistence — explicit tradeoff".
     """
 
     id: str = ""
     name: str = ""
     severity: Severity = "info"
     sustained_window: timedelta = timedelta(minutes=5)
+    escalation_threshold: int | None = None
 
     async def evaluate(self, ctx: RuleContext) -> list[RuleResult]:
         raise NotImplementedError
+
+    async def on_escalate(
+        self, result: RuleResult, ctx: RuleContext
+    ) -> RuleResult | None:
+        """Called when the consecutive-fire count hits escalation_threshold.
+
+        Side effects (e.g., docker stop) belong here. The optional return
+        value is processed as an additional RuleResult by the engine and
+        typically uses ``rule_id_override`` to distinguish remediation
+        alerts from the original leak alerts.
+
+        Default is a no-op; rules that opt in must override.
+        """
+        return None
