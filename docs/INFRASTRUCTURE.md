@@ -337,14 +337,66 @@ sudo systemctl restart openvpn@pia
 
 ### Deluge Settings
 
+Storage + privacy tuning applied 2026-04-14 (feature 014 US-3). Delete-after-download policy preserved — no seeding, torrents removed from Deluge immediately after file moves to `/downloads/complete`.
+
+**Paths + auth:**
+
 | Setting | Value |
 |---------|-------|
 | Download location | /downloads/incomplete |
 | Move completed | /downloads/complete |
-| Stop seed ratio | 0.0 (immediate) |
-| Remove at ratio | Yes |
 | Web password | subterra |
 | Daemon password | subterra |
+
+**Connection + queue limits** (applied via `/home/john/docker/deluge/core.conf`):
+
+| Key | Value |
+|-----|-------|
+| `max_connections_global` | 200 |
+| `max_connections_per_torrent` | 50 |
+| `max_active_downloading` | 3 |
+| `max_active_seeding` | 5 |
+| `max_active_limit` | 8 |
+| `max_upload_slots_global` | 40 |
+| `max_upload_slots_per_torrent` | 4 |
+
+**Encryption + peer hygiene** (forced encryption both ways, all peer-discovery protocols off for private-tracker compatibility + privacy):
+
+| Key | Value |
+|-----|-------|
+| `enc_in_policy` / `enc_out_policy` | 2 / 2 (Forced) |
+| `enc_allow_legacy` | false |
+| `dht` / `lsd` / `utpex` | false / false / false |
+| `upnp` / `natpmp` | false / false |
+| `random_port` | false |
+| `listen_ports` | [6881, 6891] (unchanged from prior) |
+| `outgoing_ports` | [0, 0] (unconstrained) |
+
+**Seeding policy** (delete after download complete — operator preference):
+
+| Key | Value |
+|-----|-------|
+| `stop_seed_at_ratio` | true |
+| `stop_seed_ratio` | 0.0 (stop immediately post-complete) |
+| `remove_seed_at_ratio` | true (torrent removed from Deluge; file survives in `/downloads/complete` via `move_completed`) |
+| `share_ratio_limit` | 2.0 (legacy field; ineffective because stop/remove fires first) |
+
+**VPN routing + kill-switch** (2026-04-14 incident context):
+
+Torrentbox runs OpenVPN at the **host level** (`openvpn@pia.service`, config `/etc/openvpn/pia.conf`, gateway `us-denver.privacy.network:1197/udp`, auth in `/etc/openvpn/pia-credentials.txt`). Deluge runs on the `docker_default` bridge network and egresses via the host's default route, which points at PIA's `tun0` when the tunnel is up. Verify Deluge is routing through VPN with:
+
+```bash
+docker exec deluge curl -s ifconfig.me   # must be a PIA exit (e.g. 181.41.x.x), NOT the home WAN IP
+```
+
+**Known architectural gaps** (deferred to a future `015-*` feature):
+
+1. **Inverted kill-switch semantics**: `/etc/openvpn/vpn-up.sh` applies restrictive iptables rules *while the tunnel is up*, and `/etc/openvpn/vpn-down.sh` resets them to ACCEPT *when the tunnel goes down*. If `openvpn@pia` dies, Deluge silently falls back to eth0 (home WAN). This is how feature 014 surfaced a 7-week silent outage (2026-02-23 → 2026-04-14, caused by a mangled shebang — literal `#\!/bin/bash` — in `vpn-up.sh`; fixed as part of 014).
+2. **No `listen_interface` binding**: proper tunnel-or-nothing binding requires the Deluge container to see `tun0` directly, which it can't in the host-OpenVPN + docker-bridge topology.
+3. **Inbound peer port on home WAN**: Compose maps `6881:6881` on the host interface; inbound peer connections would see the home IP, not the PIA exit.
+4. **No PIA port forwarding configured** — Deluge is effectively a leech-only client.
+
+All four collapse once Deluge is migrated behind a VPN sidecar container (`qmcgaw/gluetun` or similar) using `network_mode: service:gluetun`.
 
 ### Quality Profiles (Sonarr + Radarr)
 
