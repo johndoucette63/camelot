@@ -9,6 +9,7 @@ Repo-committed Compose for the Torrentbox Pi 5 (192.168.10.141). Source of truth
 | `docker-compose.yml` | Service definitions for the Pi | Yes |
 | `.env.example` | PIA credential template | Yes |
 | `gluetun-port-hook.sh` | Gluetun → Deluge state sync (PIA forwarded port + tun0 IP) | Yes |
+| `portainer-agent` service | Exposes this Pi's Docker to HOLYGRAIL Portainer on :9001 (LAN-only) | Yes (in compose) |
 | `.env` | Real PIA credentials | NO — Pi only, gitignored |
 
 ## First-time deploy (cutover from legacy host-OpenVPN)
