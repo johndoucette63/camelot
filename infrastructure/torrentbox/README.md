@@ -5,10 +5,10 @@ Repo-committed Compose for the Torrentbox Pi 5 (192.168.10.141). Source of truth
 ## Files
 
 | File | Purpose | Committed? |
-|------|---------|------------|
+| ---- | ------- | ---------- |
 | `docker-compose.yml` | Service definitions for the Pi | Yes |
 | `.env.example` | PIA credential template | Yes |
-| `gluetun-port-hook.sh` | PIA port-forwarding propagation hook | Yes |
+| `gluetun-port-hook.sh` | Gluetun → Deluge state sync (PIA forwarded port + tun0 IP) | Yes |
 | `.env` | Real PIA credentials | NO — Pi only, gitignored |
 
 ## First-time deploy (cutover from legacy host-OpenVPN)
@@ -96,7 +96,7 @@ ssh torrentbox "docker exec deluge curl -s ifconfig.me"
 ## Architecture notes
 
 - **Kill-switch**: enforced inside gluetun's netns via `FIREWALL=on`. Default-deny outbound except to LAN (192.168.10.0/24) and the VPN tunnel itself. If gluetun stops or the tunnel drops, Deluge's egress drops to zero — verifiable by stopping gluetun and observing `docker exec deluge curl --max-time 5 ifconfig.me` time out.
-- **Inbound peers**: routed through PIA's port forwarding. `random_port=False` and `listen_ports=(P,P)` are set by the hook script (`gluetun-port-hook.sh`).
+- **Inbound peers**: routed through PIA's port forwarding. `random_port=False`, `listen_ports=(P,P)`, and `listen_interface=<tun0 IP>` are all set by the hook script (`gluetun-port-hook.sh`). The `listen_interface` sync is required because libtorrent's `expand_unspecified_address()` skips POINTOPOINT interfaces, so leaving `listen_interface` empty or `0.0.0.0` makes Deluge bind only to the docker bridge and miss tun0 entirely.
 - **Hook script Docker socket access**: the hook runs `docker exec deluge deluge-console ...`, which requires the Docker socket bind-mounted into gluetun. Tradeoff documented in `specs/015-vpn-sidecar/research.md` R3 — accepted to avoid a secondary watcher container.
 - **Watchdog**: a separate Advisor rule (`vpn_leak`) on HOLYGRAIL probes Deluge's external IP every cycle and auto-stops Deluge after 3 consecutive leak detections. Configured via the Advisor backend, not via this Compose file.
 
