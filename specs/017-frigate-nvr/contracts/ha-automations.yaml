@@ -1,0 +1,197 @@
+# Home Assistant automation contracts for Frigate NVR (feature 017).
+#
+# These YAML fragments are the contract between this feature and the Home
+# Assistant configuration. They are NOT auto-deployed — HA config is managed
+# out-of-band. The intent is that a future reader can diff the live HA config
+# against this file to confirm every FR-022/FR-024/FR-025 automation exists
+# and matches the spec.
+#
+# DEPLOY MAPPING (where each section goes in HA config):
+#   - input_boolean: → input_booleans.yaml OR configuration.yaml
+#   - notify:        → configuration.yaml (notify-group platform must live here)
+#   - automation:    → automations.yaml
+#
+# All paste-able as-is once entity IDs match your install.
+
+# ---------------------------------------------------------------------------
+# Notification target group (FR-022 / FR-024 fan-out)
+# ---------------------------------------------------------------------------
+#
+# `notify.household` fans out to every household member's mobile_app target.
+# Adding/removing devices later is one edit here; automations do not change.
+
+notify:
+  - platform: group
+    name: household
+    services:
+      - service: mobile_app_jd16pro                 # JD's iPhone 16 Pro
+      - service: mobile_app_iphone                  # second iPhone
+      - service: mobile_app_kimberley_s_ipad_2      # Kimberley's iPad
+      - service: mobile_app_ipad_7                  # household iPad
+
+# ---------------------------------------------------------------------------
+# Privacy-mode switch (FR-025 + Clarification Q3)
+# ---------------------------------------------------------------------------
+#
+# A single boolean input. When toggled ON, HA sends OFF to both detect/set
+# and recordings/set on the Frigate camera. When toggled OFF, HA sends ON.
+# The restreamer (go2rtc) is never touched.
+
+input_boolean:
+  frigate_privacy_mode:
+    name: Frigate Privacy Mode
+    icon: mdi:eye-off
+
+automation:
+  - id: frigate_privacy_mode_on
+    alias: Frigate — privacy mode ON
+    trigger:
+      - platform: state
+        entity_id: input_boolean.frigate_privacy_mode
+        to: "on"
+    action:
+      - service: mqtt.publish
+        data:
+          topic: frigate/doorbell/detect/set
+          payload: "OFF"
+      - service: mqtt.publish
+        data:
+          topic: frigate/doorbell/recordings/set
+          payload: "OFF"
+
+  - id: frigate_privacy_mode_off
+    alias: Frigate — privacy mode OFF
+    trigger:
+      - platform: state
+        entity_id: input_boolean.frigate_privacy_mode
+        to: "off"
+    action:
+      - service: mqtt.publish
+        data:
+          topic: frigate/doorbell/detect/set
+          payload: "ON"
+      - service: mqtt.publish
+        data:
+          topic: frigate/doorbell/recordings/set
+          payload: "ON"
+
+  # -------------------------------------------------------------------------
+  # Person at door → rich push notification (FR-022, revised)
+  # -------------------------------------------------------------------------
+  # Original FR-022 fired on doorbell BUTTON press via the native HA Reolink
+  # integration. That integration was removed during the 017 deploy to
+  # eliminate the Reolink multi-connection bug class — go2rtc is now the
+  # sole consumer of the doorbell. The audible chime still works
+  # (hardware-paired via the Reolink app, independent of HA), so the
+  # household-critical "ding" path is unaffected. HA notifications now
+  # trigger on Frigate's first detection of a person on the doorbell —
+  # arguably better signal than a button press (catches drop-off delivery
+  # drivers who don't ring). See research.md R11.
+  #
+  # Notification image uses the HACS Frigate integration's HA-served proxy
+  # URL (`/api/frigate/notifications/...`) so the Companion App fetches the
+  # image via HA itself rather than hitting Frigate directly with auth — no
+  # remote-access decision is forced (FR-024a deferred-auth-boundary).
+  - id: frigate_person_at_door_notify
+    alias: Frigate — person at front door notification
+    mode: single
+    trigger:
+      - platform: mqtt
+        topic: frigate/events
+    condition:
+      # Why this looks elaborate: Frigate's `type: new` event fires with
+      # empty current_zones (zone membership hasn't been computed yet at
+      # first detection). Zones populate a fraction of a second later on
+      # subsequent `type: update` events. Verified live via mqtt_sub on
+      # the bridged broker:
+      #
+      #   type=new     current_zones=[]
+      #   type=update  current_zones=[]
+      #   type=update  current_zones=['porch']  ← we want to fire here
+      #   type=update  current_zones=['porch']  ← but NOT again here
+      #   type=end     current_zones=['porch']  ← or here
+      #
+      # So: trigger on EVERY frigate/events update; fire only when porch
+      # first appears in current_zones (i.e., not in before, in after).
+      # Combined with `mode: single` and `tag: event_id` on the
+      # notification, this fires exactly once per visit.
+      - condition: template
+        value_template: >-
+          {{ trigger.payload_json.after.camera == 'doorbell'
+             and trigger.payload_json.after.label == 'person'
+             and 'porch' in trigger.payload_json.after.current_zones
+             and 'porch' not in (trigger.payload_json.before.current_zones or []) }}
+    action:
+      - service: notify.household
+        data:
+          title: Someone is at the door
+          message: "Person detected at the front door"
+          data:
+            # Absolute HA-served URL: HACS Frigate integration's notification
+            # proxy is unauthenticated by design for this exact use case.
+            image: "http://192.168.10.117:8123/api/frigate/notifications/{{ trigger.payload_json.after.id }}/snapshot.jpg?format=android"
+            # iOS Companion App attachment (richer notification on iPhone/iPad)
+            attachment:
+              url: "http://192.168.10.117:8123/api/frigate/notifications/{{ trigger.payload_json.after.id }}/snapshot.jpg"
+              content-type: jpg
+            # Tap target: Frigate UI on LAN. When Tailscale lands, this URL
+            # keeps working over the Tailnet without changes (FR-024a).
+            url: "http://192.168.10.129:5000"
+            # Same `tag` per-event groups iOS notification replacements; new
+            # event = new tag = new notification, no thread collapsing.
+            tag: "{{ trigger.payload_json.after.id }}"
+
+  # -------------------------------------------------------------------------
+  # Person detected at front door → porch lights on (FR-023)
+  # -------------------------------------------------------------------------
+  # TODO: enable when a porch light entity exists in HA. The user does not
+  # have a smart porch light integrated as of the 017 initial deploy.
+  # When wired, change `light.PLACEHOLDER_porch` to the real entity ID
+  # (could be a `light.*`, `switch.*`, or `scene.*`) and uncomment.
+  #
+  # - id: frigate_person_porch_lights
+  #   alias: Frigate — person at front door, turn on porch lights
+  #   mode: single
+  #   trigger:
+  #     - platform: mqtt
+  #       topic: frigate/events
+  #   condition:
+  #     - condition: template
+  #       value_template: >-
+  #         {{ trigger.payload_json.after.camera == 'doorbell'
+  #            and trigger.payload_json.after.label == 'person'
+  #            and trigger.payload_json.type == 'new' }}
+  #   action:
+  #     - service: light.turn_on
+  #       target:
+  #         entity_id: light.PLACEHOLDER_porch
+
+  # -------------------------------------------------------------------------
+  # Package detected → notification with clip link (FR-024)
+  # -------------------------------------------------------------------------
+  # Fires when an object labeled `package` ends (Frigate's "best-guess this
+  # really is a package" moment). Image is the proxied snapshot via HA.
+  - id: frigate_package_notify
+    alias: Frigate — package detected at door
+    mode: single
+    trigger:
+      - platform: mqtt
+        topic: frigate/events
+    condition:
+      - condition: template
+        value_template: >-
+          {{ trigger.payload_json.after.camera == 'doorbell'
+             and trigger.payload_json.after.label == 'package'
+             and trigger.payload_json.type == 'end' }}
+    action:
+      - service: notify.household
+        data:
+          title: Package at the door
+          message: "A package was detected"
+          data:
+            image: "http://192.168.10.117:8123/api/frigate/notifications/{{ trigger.payload_json.after.id }}/snapshot.jpg?format=android"
+            attachment:
+              url: "http://192.168.10.117:8123/api/frigate/notifications/{{ trigger.payload_json.after.id }}/snapshot.jpg"
+              content-type: jpg
+            url: "http://192.168.10.129:5000"
+            tag: "{{ trigger.payload_json.after.id }}"
