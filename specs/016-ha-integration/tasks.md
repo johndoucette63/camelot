@@ -178,7 +178,7 @@ Live deployment is via `bash scripts/deploy-advisor.sh` (rsync+SSH to HOLYGRAIL)
 - [X] T063 [P] [advisor/backend/tests/test_prompt_assembler_ha.py](../../advisor/backend/tests/test_prompt_assembler_ha.py) — asserts the HA block appears in the prompt for an IoT-tagged turn and is absent from non-IoT turns; asserts the block is bounded at 20 entities.
 - [X] T064 [P] Update [docs/INFRASTRUCTURE.md](../../docs/INFRASTRUCTURE.md) with the "Home Assistant Integration" subsection per quickstart Step 9: advisor-side config surface, rotation procedure, decommission procedure, the new `ADVISOR_ENCRYPTION_KEY` requirement. This closes the Assumptions statement in [spec.md](spec.md) about the documentation side-effect.
 - [X] T065 Run [quickstart.md](quickstart.md) end-to-end on HOLYGRAIL with the real Home Assistant Pi (reference memory: execute quickstart.md as the final validation after every speckit implement). Deploy via `bash scripts/deploy-advisor.sh`. Every "Verify" bullet must pass. If any fails, fix in code and re-run — do **not** edit the quickstart to accommodate unexpected behavior.
-- [ ] T066 Merge the feature branch to `master` once T065 passes and all checklist boxes above are complete.
+- [X] T066 Merge the feature branch to `master` once T065 passes and all checklist boxes above are complete.
 
 ---
 
