@@ -110,20 +110,28 @@ def _parse_last_changed(raw: str | None) -> datetime:
     return dt
 
 
-def _snapshot_row(entity: dict[str, Any], polled_at: datetime) -> HAEntitySnapshot | None:
+ENTITY_SYNTHETIC_PREFIX = "entity:"
+
+
+def _snapshot_row(
+    entity: dict[str, Any],
+    polled_at: datetime,
+    registry_map: dict[str, str],
+) -> HAEntitySnapshot | None:
     """Build an ``HAEntitySnapshot`` from a raw HA states payload entry.
 
-    Returns ``None`` when the entity lacks an ``attributes.device_id`` — HA
-    did not expose the per-device UUID for it, so we cannot join it back
-    to the unified inventory. Skip it quietly.
+    ``ha_device_id`` is resolved via ``registry_map`` (built from HA's
+    ``/api/template`` device_id() rendering in ``ha_client``). Entities
+    not in the registry — helpers, manual templates, some integrations —
+    get a synthetic id ``entity:<entity_id>`` so they still appear in the
+    snapshot and dashboard. The inventory merge skips synthetic ids since
+    they are not real physical devices.
     """
     entity_id = entity.get("entity_id")
     if not entity_id or "." not in entity_id:
         return None
     attrs = entity.get("attributes") or {}
-    ha_device_id = attrs.get("device_id")
-    if not ha_device_id:
-        return None
+    ha_device_id = registry_map.get(entity_id) or f"{ENTITY_SYNTHETIC_PREFIX}{entity_id}"
 
     domain, _ = entity_id.split(".", 1)
     friendly_name = attrs.get("friendly_name") or entity_id
@@ -537,10 +545,27 @@ async def run_cycle() -> dict[str, Any]:
             stats["duration_ms"] = int((time.monotonic() - cycle_start_monotonic) * 1000)
             return stats
 
+        # Resolve entity_id -> device_id once per cycle via the template
+        # API. HA's /api/states doesn't include device_id in attributes;
+        # see ha_client.device_registry_map for why. On failure (older HA
+        # versions or template API disabled) we fall back to synthetic
+        # ids so the cycle still produces snapshots.
+        try:
+            registry_map = await ha_client.device_registry_map(conn)
+        except HAClientError as exc:
+            logger.warning(
+                "ha_poll_cycle.registry_unavailable",
+                extra={
+                    "event": "ha_poll_cycle.registry_unavailable",
+                    "error_class": exc.error_class,
+                },
+            )
+            registry_map = {}
+
         filtered = [e for e in raw_entities if _entity_allowed(e)]
         rows: list[HAEntitySnapshot] = []
         for entity in filtered:
-            row = _snapshot_row(entity, cycle_start)
+            row = _snapshot_row(entity, cycle_start, registry_map)
             if row is not None:
                 rows.append(row)
 

@@ -249,6 +249,45 @@ async def call_notify(
     )
 
 
+async def device_registry_map(
+    conn: HomeAssistantConnection,
+) -> dict[str, str]:
+    """Return a ``{entity_id: ha_device_id}`` map for every entity HA knows.
+
+    ``/api/states`` deliberately does NOT include ``device_id`` in entity
+    attributes (device identity lives in HA's device registry, which REST
+    exposes only through ``/api/template`` or the WebSocket API). We issue
+    one template render per poll cycle that walks ``states`` and emits a
+    JSON list of ``[entity_id, device_id]`` pairs for every entity where
+    the ``device_id()`` Jinja function returns a non-null UUID. Entities
+    that belong to no device registry entry (helpers, manually-created
+    templates, etc.) are omitted — callers synthesize a fallback
+    ``ha_device_id`` for them so they still land in the snapshot.
+    """
+    template = (
+        "{% set ns = namespace(items=[]) %}"
+        "{% for s in states %}"
+        "{% set did = device_id(s.entity_id) %}"
+        "{% if did %}"
+        "{% set ns.items = ns.items + [[s.entity_id, did]] %}"
+        "{% endif %}"
+        "{% endfor %}"
+        "{{ ns.items | tojson }}"
+    )
+    result = await _request(
+        conn, "POST", "/api/template", json_body={"template": template}
+    )
+    if not isinstance(result, list):
+        raise HAUnexpectedPayloadError(
+            "Home Assistant /api/template returned an unexpected shape for the device registry map."
+        )
+    return {
+        pair[0]: str(pair[1])
+        for pair in result
+        if isinstance(pair, list) and len(pair) == 2 and pair[0] and pair[1]
+    }
+
+
 async def list_notify_services(conn: HomeAssistantConnection) -> list[str]:
     """Return every ``notify.*`` service name exposed by this HA instance.
 

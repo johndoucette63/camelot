@@ -171,6 +171,12 @@ async def merge_ha_devices(
     for row in snapshots:
         if not row.ha_device_id:
             continue
+        # Skip synthetic ids assigned by ha_poller when HA's device
+        # registry has no entry for the entity (helpers, templates,
+        # statistics, etc.). These are not real physical devices, so
+        # they must not create inventory rows.
+        if row.ha_device_id.startswith("entity:"):
+            continue
         by_device[row.ha_device_id].append(row)
 
     matched = 0

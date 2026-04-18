@@ -744,16 +744,18 @@ ssh pi@192.168.10.105 "sudo chmod -R 777 /mnt/media-disk/MediaStorage/Media/Movi
 
 The Network Advisor reads IoT device state, Thread topology, and delivers critical alerts via a single configured Home Assistant connection.
 
-### Home Assistant deployment (as of 2026-04-17)
+### Home Assistant deployment (as of 2026-04-18)
 
 | Property | Value |
 |----------|-------|
-| Host | Dedicated Raspberry Pi (IP recorded in HA admin UI; update this row on re-deploy) |
-| Base URL used by advisor | `http://homeassistant.local:8123` (or the Pi's LAN IP) |
-| Core version | _Record on first config_ |
+| Host | Dedicated Raspberry Pi |
+| LAN IP | `192.168.10.117` |
+| Base URL used by advisor | `http://192.168.10.117:8123` (mDNS `homeassistant.local` does not resolve inside Docker containers — use the raw IP) |
+| Entity count exposed | ~530 total; ~161 ingested after curated domain filter |
 | Active integrations | HomeKit, Aqara, Thread, MQTT |
-| Identified Thread border routers | HomePod mini units, Aqara hub(s) — enumerate here after first poll |
-| Known Thread issues | Fragmentation across border routers historically observed; advisor Thread view surfaces current state |
+| Active `notify.*` services | `mobile_app_jd16pro`, `mobile_app_iphone`, `mobile_app_ipad_7`, `mobile_app_kimberley_s_ipad_2` |
+| Thread diagnostic endpoint | `/api/config/thread/status` returns **404** on the current HA version — Thread tab in the advisor is correctly empty. Thread border routers still visible via per-entity `integration=thread` filter once the HA version exposes them. |
+| Known limitation (feature 016) | HA entity attributes from `/api/states` do not include MAC/IP, so the inventory merge cannot dedup HA devices against scanner-discovered rows by MAC. Net effect: HomePods / Aqara hubs that the LAN scanner already sees may appear twice in the unified inventory — once from the scanner (MAC-keyed) and once from HA (`ha_device_id`-keyed). Resolving needs a deeper HA integration (WebSocket device registry subscription); tracked for a future iteration. |
 
 ### Advisor-side config surface
 
