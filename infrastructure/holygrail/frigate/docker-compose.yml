@@ -1,0 +1,85 @@
+# Frigate NVR stack — HOLYGRAIL
+# GPU-accelerated NVR (Frigate + go2rtc bundled) with a co-located
+# Mosquitto broker bridging Frigate to Home Assistant.
+#
+# Prerequisites:
+#   1. docker network create holygrail-proxy (if not already created)
+#   2. /mnt/frigate exists and is mounted (see specs/017-frigate-nvr/quickstart.md Step 3)
+#   3. cp .env.example .env and fill in credentials
+#   4. Generate Mosquitto passwords file — see mosquitto/config/passwords.example
+#   5. Generate the TensorRT engine (quickstart Step T014) before `docker compose up`
+#
+# Deploy from Mac: rsync -av --delete . holygrail:/opt/frigate-stack/
+
+networks:
+  holygrail-proxy:
+    external: true
+  frigate-internal:
+    driver: bridge
+
+volumes:
+  frigate_mosquitto_data:
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:${MOSQUITTO_IMAGE_TAG:-2}
+    container_name: frigate-mosquitto
+    restart: unless-stopped
+    networks:
+      - frigate-internal
+      - holygrail-proxy
+    ports:
+      # 1883 is internal-only (frigate-internal network); do NOT publish.
+      # 1884 is the LAN listener for Home Assistant.
+      - "1884:1884"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config:ro
+      - frigate_mosquitto_data:/mosquitto/data
+    environment:
+      - TZ=${TZ:-America/Denver}
+
+  frigate:
+    image: ghcr.io/blakeblackshear/frigate:${FRIGATE_IMAGE_TAG:-stable-tensorrt}
+    container_name: frigate
+    restart: unless-stopped
+    privileged: true
+    shm_size: "256mb"
+    networks:
+      - frigate-internal
+      - holygrail-proxy
+    ports:
+      - "5000:5000"   # Web UI + API (also routed via Traefik at frigate.holygrail)
+      - "8554:8554"   # go2rtc RTSP (consumed by the native HA Reolink integration)
+      - "1984:1984"   # go2rtc admin/debug UI
+    environment:
+      - TZ=${TZ:-America/Denver}
+      - FRIGATE_DOORBELL_USER=${FRIGATE_DOORBELL_USER}
+      - FRIGATE_DOORBELL_PASSWORD=${FRIGATE_DOORBELL_PASSWORD}
+      - FRIGATE_MQTT_USER=${FRIGATE_MQTT_USER}
+      - FRIGATE_MQTT_PASSWORD=${FRIGATE_MQTT_PASSWORD}
+      # PHASE 2 (commented — uncomment when onboarding hub-backed cameras):
+      # - FRIGATE_HUB_USER=${FRIGATE_HUB_USER}
+      # - FRIGATE_HUB_PASSWORD=${FRIGATE_HUB_PASSWORD}
+    volumes:
+      - ./config:/config
+      - /mnt/frigate:/media/frigate
+      - /etc/localtime:/etc/localtime:ro
+      - type: tmpfs
+        target: /tmp/cache
+        tmpfs:
+          size: 1000000000  # 1 GB — transcode / clip staging
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=holygrail-proxy
+      - traefik.http.routers.frigate.rule=Host(`frigate.holygrail`)
+      - traefik.http.routers.frigate.entrypoints=web
+      - traefik.http.services.frigate.loadbalancer.server.port=5000
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    depends_on:
+      - mosquitto

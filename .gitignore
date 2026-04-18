@@ -16,3 +16,7 @@ nul
 
 # Claude Code local settings
 .claude/
+
+# Frigate stack runtime secrets (generated on HOLYGRAIL, never committed)
+infrastructure/holygrail/frigate/mosquitto/config/passwords
+infrastructure/holygrail/frigate/mosquitto/config/conf.d/

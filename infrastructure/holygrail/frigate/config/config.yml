@@ -1,0 +1,184 @@
+# Frigate runtime config — HOLYGRAIL (feature 017)
+#
+# Authoritative contract: specs/017-frigate-nvr/contracts/frigate-config.md
+# Authoritative data model: specs/017-frigate-nvr/data-model.md
+
+mqtt:
+  host: mosquitto
+  port: 1883
+  user: '{FRIGATE_MQTT_USER}'
+  password: '{FRIGATE_MQTT_PASSWORD}'
+  topic_prefix: frigate
+
+# ── Detector: CPU (Phase 1 interim) ───────────────────────────────────────
+# Spec FR-011 calls for GPU detection on the RTX 2070 Super. Frigate 0.16+
+# (the current stable-tensorrt image) removed the standalone TensorRT
+# detector; GPU detection now runs through the `onnx` detector with a
+# YOLO-NAS-S or YOLOv9-T ONNX file. Sourcing/exporting that ONNX hit
+# multiple dependency walls (super-gradients vs numpy, onnxruntime vs
+# kernel) during the 017 deploy. The CPU detector below uses Frigate's
+# bundled cpu_model.tflite (SSD MobileNet on COCO-90) — fast enough on
+# the Ryzen 7800X3D for a single doorbell sub-stream and gets the rest
+# of the stack validated. The GPU/ONNX upgrade is tracked as a follow-up
+# polish task; see specs/017-frigate-nvr/burn-in-log.md (FR-011 deviation).
+detectors:
+  cpu1:
+    type: cpu
+    num_threads: 3
+
+# ── go2rtc: single upstream to every camera ───────────────────────────────
+# The native HA Reolink integration consumes rtsp://holygrail:8554/doorbell
+# (see quickstart Step 5). NEVER connect a second consumer directly to the
+# camera — that re-triggers the Reolink firmware multi-connection bug.
+go2rtc:
+  streams:
+    doorbell:
+      - rtsp://{FRIGATE_DOORBELL_USER}:{FRIGATE_DOORBELL_PASSWORD}@doorbell.lan:554/h264Preview_01_main
+    doorbell_sub:
+      - rtsp://{FRIGATE_DOORBELL_USER}:{FRIGATE_DOORBELL_PASSWORD}@doorbell.lan:554/h264Preview_01_sub
+
+    # PHASE 2: hub-backed solar cameras share the hub's IP and differ only by channel.
+    # solar_cam_front:
+    #   - "rtsp://{FRIGATE_HUB_USER}:{FRIGATE_HUB_PASSWORD}@hub.lan:554/h264Preview_01_main"
+    # solar_cam_front_sub:
+    #   - "rtsp://{FRIGATE_HUB_USER}:{FRIGATE_HUB_PASSWORD}@hub.lan:554/h264Preview_01_sub"
+    # solar_cam_side:
+    #   - "rtsp://{FRIGATE_HUB_USER}:{FRIGATE_HUB_PASSWORD}@hub.lan:554/h264Preview_02_main"
+    # solar_cam_side_sub:
+    #   - "rtsp://{FRIGATE_HUB_USER}:{FRIGATE_HUB_PASSWORD}@hub.lan:554/h264Preview_02_sub"
+
+# ── Global defaults (overridable per camera) ──────────────────────────────
+# Frigate 0.17 retention schema: 4 buckets, days=0 disables that bucket.
+# Goal: only retain footage around AI-detected objects (person/dog/cat),
+# NOT around raw motion (which the moving flag would trigger constantly).
+#   - alerts:     person events → 30d (review-priority surface in Frigate UI)
+#   - detections: dog/cat events → 30d (lower-priority but still kept)
+#   - continuous: 0d (no 24/7 raw recording)
+#   - motion:     0d (no motion-only retention — kills the flag/wind noise)
+record:
+  enabled: true
+  alerts:
+    retain:
+      days: 30
+  detections:
+    retain:
+      days: 30
+  continuous:
+    days: 0
+  motion:
+    days: 0
+snapshots:
+  enabled: true
+  retain:
+    default: 30
+
+# ── Cameras ───────────────────────────────────────────────────────────────
+cameras:
+  doorbell:
+    ffmpeg:
+      # Recordings are re-encoded with libx264 to fix macOS VideoToolbox decode
+      # failures (`NSOSStatusErrorDomain Code=-12909` / `VTDecompressionOutputCallback`)
+      # observed on Safari + Chrome when stream-copying the Reolink doorbell's
+      # main stream (H.264 High@5.1 with B-frames + non-aligned keyframes).
+      # libx264 with no B-frames + keyframes forced at exact 10s segment
+      # boundaries → every segment is self-contained and decoder-friendly.
+      # Initially attempted h264_nvenc (RTX 2070 Super) but the NVIDIA
+      # Container Toolkit didn't mount libnvidia-encode.so.1 into the
+      # Frigate image despite NVIDIA_DRIVER_CAPABILITIES=video being set.
+      # libx264 is bulletproof here — Ryzen 7800X3D handles one camera at
+      # 20fps with negligible CPU, no GPU-library-version surface.
+      output_args:
+        record: >-
+          -f segment -segment_time 10 -segment_format mp4
+          -reset_timestamps 1 -strftime 1
+          -c:v libx264 -preset veryfast -tune zerolatency
+          -profile:v high -bf 0
+          -g 200 -force_key_frames expr:gte(t,n_forced*10)
+          -pix_fmt yuv420p
+          -c:a aac -ac 1 -ar 16000
+      inputs:
+        - path: rtsp://127.0.0.1:8554/doorbell
+          roles: [record]
+        - path: rtsp://127.0.0.1:8554/doorbell_sub
+          roles: [detect]
+    detect:
+      enabled: true
+      width: 640
+      height: 480
+      fps: 5
+    objects:
+      track:
+        - person
+        # car removed 2026-04-18: doorbell sees the street; ambient car traffic
+        # generates noise events with no household value.
+        - dog
+        - cat
+        # package: bundled CPU detector (COCO-90 SSD MobileNet) has no
+        # `package` class. Listed in the spec but silently dropped at runtime.
+        # Will activate when GPU/YOLO upgrade lands (FR-011 follow-up).
+        # - package
+      filters:
+        person:
+          # Detection bounding-box area filter (pixels² at detect resolution
+          # 640x480). A person at the porch is ~12,000–20,000 px²; sidewalk
+          # pedestrians 50+ feet away are <1500 px². Filters distant
+          # noise without losing real visitors. Tune up if still noisy,
+          # down if real visitors get missed.
+          min_area: 5000
+          max_area: 300000
+
+    # Zone-based filtering: "person at door" filter, refines beyond bounding-box size.
+    # Polygon coordinates are normalized (0-1 range) in Frigate 0.17+ — auto-edited
+    # via the Frigate UI Mask and Zone Editor, so changes there flow back to this
+    # file on next pull. The current polygon traces the recessed entryway hallway:
+    # excludes the small outdoor doorway opening (sidewalk visible through =
+    # NOT a porch visitor) and includes the L-shaped entryway interior.
+    # Re-edit by: Frigate UI → Settings → Mask and Zone Editor → doorbell → porch.
+    zones:
+      porch:
+        coordinates: 0,0,0.336,0.014,0.344,0.612,0.522,0.61,0.535,0,1,0,1,1,0,1
+        inertia: 3
+        loitering_time: 0
+
+    record:
+      enabled: true
+      alerts:
+        retain:
+          days: 30
+      detections:
+        retain:
+          days: 30
+      continuous:
+        days: 0
+      motion:
+        days: 0
+    snapshots:
+      enabled: true
+      retain:
+        default: 30
+
+    # PHASE 2: hub-backed solar cameras follow the same shape.
+    # Uncomment and add per camera when onboarding through the Reolink Home Hub.
+    #
+    # solar_cam_front:
+    #   ffmpeg:
+    #     inputs:
+    #       - path: rtsp://127.0.0.1:8554/solar_cam_front
+    #         roles: [record]
+    #       - path: rtsp://127.0.0.1:8554/solar_cam_front_sub
+    #         roles: [detect]
+    #   detect:
+    #     enabled: true
+    #     width: 320
+    #     height: 320
+    #   objects:
+    #     track: [person, car, dog, cat, package]
+    #   record:
+    #     enabled: true
+    #     retain: { days: 7, mode: motion }
+    #     events: { retain: { default: 30, mode: motion } }
+    #   snapshots:
+    #     enabled: true
+    #     retain:
+    #       default: 30
+version: 0.17-0

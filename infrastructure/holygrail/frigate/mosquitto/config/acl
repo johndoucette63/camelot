@@ -1,0 +1,16 @@
+# Mosquitto ACL for the Frigate NVR stack.
+#
+# See contracts/mqtt-topics.md for the full contract. This ACL enforces:
+#   - `frigate` has full access to frigate/# (it IS the publisher).
+#   - `homeassistant` has read-only access to frigate/# plus write only to
+#     the /set topics used for privacy-mode and runtime toggles.
+
+user frigate
+topic readwrite frigate/#
+
+user homeassistant
+topic read frigate/#
+topic write frigate/+/detect/set
+topic write frigate/+/recordings/set
+topic write frigate/+/snapshots/set
+topic write frigate/+/motion/set
