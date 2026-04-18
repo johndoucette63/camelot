@@ -7,6 +7,8 @@ change plus one entry in this list.
 from app.services.rules.base import Rule
 from app.services.rules.device_offline import DeviceOfflineRule
 from app.services.rules.disk_high import DiskHighRule
+from app.services.rules.frigate_detection_latency import FrigateDetectionLatencyRule
+from app.services.rules.frigate_storage_high import FrigateStorageHighRule
 from app.services.rules.ha_connection_health import (
     HaConnectionAuthFailureRule,
     HaConnectionUnexpectedPayloadRule,
@@ -33,4 +35,6 @@ RULES: list[Rule] = [
     HaConnectionUnreachableRule(),
     HaConnectionUnexpectedPayloadRule(),
     ThreadBorderRouterOfflineRule(),
+    FrigateStorageHighRule(),
+    FrigateDetectionLatencyRule(),
 ]

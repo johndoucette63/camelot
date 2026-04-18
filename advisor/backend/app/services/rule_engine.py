@@ -120,6 +120,28 @@ async def _probe_ollama() -> bool:
         return False
 
 
+async def _probe_frigate_stats() -> dict | None:
+    """Fetch Frigate's /api/stats for feature-017 rules.
+
+    Returns the parsed JSON payload on success, or ``None`` if Frigate is
+    unreachable or responds with an error. Rules treat ``None`` as "no
+    data this cycle — skip" so a Frigate outage does not cascade into
+    spurious alerts from the two Frigate rules.
+    """
+    url = f"{settings.frigate_url.rstrip('/')}/api/stats"
+    try:
+        async with httpx.AsyncClient(
+            timeout=settings.frigate_probe_timeout_seconds
+        ) as client:
+            resp = await client.get(url)
+        if resp.status_code != 200:
+            return None
+        payload = resp.json()
+        return payload if isinstance(payload, dict) else None
+    except (httpx.RequestError, httpx.TimeoutException, ValueError):
+        return None
+
+
 async def build_context(session, app) -> RuleContext:
     now = _utcnow()
 
@@ -140,6 +162,7 @@ async def build_context(session, app) -> RuleContext:
     recent_scans = list(scans_result.scalars())
 
     ollama_healthy = await _probe_ollama()
+    frigate_stats = await _probe_frigate_stats()
     container_state = getattr(app.state, "container_state", {}) if app else {}
 
     return RuleContext(
@@ -153,6 +176,7 @@ async def build_context(session, app) -> RuleContext:
         ollama_healthy=ollama_healthy,
         recent_scans=recent_scans,
         device_metrics={},
+        frigate_stats=frigate_stats,
     )
 
 

@@ -57,6 +57,14 @@ class Settings(BaseSettings):
     # 3-strike auto-stop per Clarification Q2 + FR-012.
     vpn_leak_escalation_threshold: int = 3
 
+    # ── Frigate NVR integration (feature 017) ────────────────────────────
+    # Where the rule engine probes Frigate's /api/stats each cycle to feed
+    # the frigate_storage_high and frigate_detection_latency rules.
+    # Defaults to the Traefik hostname so it works from both the Advisor
+    # container on HOLYGRAIL and from local dev against the same host.
+    frigate_url: str = "http://frigate.holygrail"
+    frigate_probe_timeout_seconds: int = 2
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
     @property

@@ -52,6 +52,11 @@ class RuleContext:
     with no metrics on record so they degrade to no-ops in production until
     a metric source is wired in.
     """
+    frigate_stats: dict | None = None
+    """Latest JSON payload from Frigate's /api/stats, or None if the probe
+    failed this cycle. Populated by rule_engine._probe_frigate_stats (feature
+    017). Rules that consume this field MUST no-op gracefully when it is
+    None so Frigate being down does not take the Advisor with it."""
 
 
 class Rule:
