@@ -39,6 +39,13 @@ services:
       # VPN watchdog probe target — uses host's ~/.ssh/config alias
       VPN_PROBE_SSH_TARGET: ${VPN_PROBE_SSH_TARGET:-torrentbox}
       VPN_LEAK_DENYLIST_IPS: ${VPN_LEAK_DENYLIST_IPS:-67.176.27.48}
+      # Feature 016 — HA integration. Fernet key for encrypting the HA
+      # long-lived access token at rest; the backend refuses to start if
+      # unset or malformed (Constitution V: silent failures unacceptable).
+      ADVISOR_ENCRYPTION_KEY: "${ADVISOR_ENCRYPTION_KEY:?ADVISOR_ENCRYPTION_KEY is required}"
+      HA_POLL_INTERVAL_SECONDS: ${HA_POLL_INTERVAL_SECONDS:-60}
+      HA_REQUEST_TIMEOUT_SECONDS: ${HA_REQUEST_TIMEOUT_SECONDS:-10}
+      HA_NOTIFY_RETRY_BUDGET_SECONDS: ${HA_NOTIFY_RETRY_BUDGET_SECONDS:-300}
       TZ: ${TZ:-America/Denver}
     depends_on:
       postgres:
