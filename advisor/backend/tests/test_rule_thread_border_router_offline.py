@@ -154,28 +154,41 @@ async def test_online_router_emits_nothing(rule_env):
     assert results == []
 
 
-# ── (c) offline router, no matching device → skip + warn ───────────────
+# ── (c) offline router, no matching device → fire with synthetic id ────
 
 
 @pytest.mark.asyncio
-async def test_offline_router_without_device_logs_warning(rule_env, caplog):
+async def test_offline_router_without_device_fires_with_synthetic_id(rule_env):
+    """A HA WebSocket-sourced border router (HomePod, Aqara hub) has no
+    matching row in the unified devices table — its Thread extended_address
+    is not an HA device_id. The rule must still fire, using a synthetic
+    stable target_id derived from the extended_address so dedup works
+    across cycles.
+    """
     session = rule_env
+    # Use a realistic 16-char hex extended_address (matches HA's shape).
     await _seed_router(
         session,
-        ha_device_id="br-orphan",
-        friendly_name="Orphan Router",
+        ha_device_id="ea7a0884124a9393",
+        friendly_name="Man Cave",
         online=False,
     )
     await session.commit()
 
     rule = ThreadBorderRouterOfflineRule()
-    with caplog.at_level(logging.WARNING):
-        results = await rule.evaluate(_ctx(session))
+    results = await rule.evaluate(_ctx(session))
 
-    assert results == []
-    assert any(
-        "br-orphan" in record.getMessage() for record in caplog.records
-    ), f"expected a warning mentioning br-orphan; got: {[r.getMessage() for r in caplog.records]}"
+    assert len(results) == 1
+    result = results[0]
+    assert result.target_type == "ha_device"
+    # 31-bit positive int derived from the extended_address hex.
+    assert result.target_id == int("ea7a0884124a9393", 16) & 0x7FFFFFFF
+    assert "Man Cave" in result.message
+
+    # Stability: a second call with the same input must produce the same
+    # target_id so the rule engine's dedup works across cycles.
+    second = await rule.evaluate(_ctx(session))
+    assert second[0].target_id == result.target_id
 
 
 # ── (d) two routers, one online + one offline → one result ─────────────

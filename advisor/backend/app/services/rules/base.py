@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 
 Severity = Literal["info", "warning", "critical"]
-TargetType = Literal["device", "service", "system", "ha_connection"]
+TargetType = Literal["device", "service", "system", "ha_connection", "ha_device"]
 
 
 @dataclass

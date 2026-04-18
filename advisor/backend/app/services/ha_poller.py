@@ -36,13 +36,19 @@ from app.models.ha_entity_snapshot import HAEntitySnapshot
 from app.models.home_assistant_connection import HomeAssistantConnection
 from app.models.thread_border_router import ThreadBorderRouter
 from app.models.thread_device import ThreadDevice
-from app.services import ha_client, ha_inventory_merge, notification_retry_sweeper
+from app.services import (
+    ha_client,
+    ha_inventory_merge,
+    ha_ws_client,
+    notification_retry_sweeper,
+)
 from app.services.ha_client import (
     HAAuthError,
     HAClientError,
     HAUnexpectedPayloadError,
     HAUnreachableError,
 )
+from app.services.ha_ws_client import HAWSError
 
 logger = logging.getLogger(__name__)
 
@@ -385,37 +391,73 @@ async def _refresh_thread_tables(
     Failure semantics: this helper must not raise out of ``run_cycle``.
     Callers wrap it in a try/except and log on unexpected errors.
     """
-    # An HAClientError here propagates to run_cycle which records it on the
-    # connection row alongside any classification from the states() call.
-    payload = await ha_client.thread_status(conn)
-
-    # Empty-state: HA has no Thread integration. Truncate both tables so
-    # the UI can render the "no Thread data" panel cleanly.
-    if payload is None:
-        await session.execute(delete(ThreadDevice))
-        await session.execute(delete(ThreadBorderRouter))
-        logger.info(
-            "thread_refresh",
-            extra={
-                "event": "thread_refresh",
-                "border_routers": 0,
-                "devices": 0,
-                "status": "empty",
-            },
-        )
-        return 0, 0
-
+    # Prefer the WebSocket path — HA's REST /api/config/thread/status
+    # returns 404 on current versions, so this is the only way to read
+    # live Thread topology. Fall back to REST only if WS fails entirely.
+    router_records: list[dict[str, Any]] = []
+    device_records: list[dict[str, Any]] = []
+    source = "ws"
     try:
-        router_records, device_records = _parse_thread_payload(payload)
-    except Exception:  # noqa: BLE001 — parse defensiveness
-        logger.warning(
-            "thread_refresh.parse_failed",
+        router_records = await _fetch_routers_via_ws(conn)
+    except HAWSError as exc:
+        logger.info(
+            "thread_refresh.ws_failed",
             extra={
-                "event": "thread_refresh.parse_failed",
-                "status": "parse_error",
+                "event": "thread_refresh.ws_failed",
+                "error_class": exc.error_class,
+                "error": str(exc)[:200],
             },
         )
-        return 0, 0
+        # REST fallback: older HA versions or WS disabled. Same semantics
+        # as before — None means no Thread integration, populated dict
+        # gets parsed into the router/device record shape.
+        source = "rest"
+        try:
+            payload = await ha_client.thread_status(conn)
+        except HAClientError as rest_exc:
+            # Both paths failed — preserve current state, do not wipe tables.
+            logger.warning(
+                "thread_refresh.both_paths_failed",
+                extra={
+                    "event": "thread_refresh.both_paths_failed",
+                    "ws_error": exc.error_class,
+                    "rest_error": rest_exc.error_class,
+                },
+            )
+            return 0, 0
+        if payload is None:
+            # REST reports no Thread integration. Mark all existing
+            # routers offline (don't delete — the offline rule needs to
+            # observe the online→offline transition) and clear devices.
+            await session.execute(delete(ThreadDevice))
+            await session.execute(
+                ThreadBorderRouter.__table__.update().values(
+                    online=False, last_refreshed_at=cycle_start
+                )
+            )
+            logger.info(
+                "thread_refresh",
+                extra={
+                    "event": "thread_refresh",
+                    "border_routers": 0,
+                    "devices": 0,
+                    "source": "rest",
+                    "status": "empty",
+                },
+            )
+            return 0, 0
+        try:
+            router_records, device_records = _parse_thread_payload(payload)
+        except Exception:  # noqa: BLE001 — parse defensiveness
+            logger.warning(
+                "thread_refresh.parse_failed",
+                extra={
+                    "event": "thread_refresh.parse_failed",
+                    "status": "parse_error",
+                    "source": "rest",
+                },
+            )
+            return 0, 0
 
     incoming_router_ids = {r["ha_device_id"] for r in router_records}
     existing_routers = (
@@ -447,18 +489,14 @@ async def _refresh_thread_tables(
         rid for rid in routers_by_id.keys() if rid not in incoming_router_ids
     ]
     if stale_router_ids:
-        # Break any device → router FK before deleting the routers so the
-        # SET NULL behaviour fires cleanly even on SQLite test DBs where
-        # FK actions differ slightly from Postgres.
+        # Mark stale routers OFFLINE rather than delete them. The
+        # thread_border_router_offline rule watches for online→offline
+        # transitions, so the row must persist in the table for the rule
+        # to observe the state change on subsequent cycles.
         await session.execute(
-            ThreadDevice.__table__.update()
-            .where(ThreadDevice.parent_border_router_id.in_(stale_router_ids))
-            .values(parent_border_router_id=None)
-        )
-        await session.execute(
-            delete(ThreadBorderRouter).where(
-                ThreadBorderRouter.ha_device_id.in_(stale_router_ids)
-            )
+            ThreadBorderRouter.__table__.update()
+            .where(ThreadBorderRouter.ha_device_id.in_(stale_router_ids))
+            .values(online=False, last_refreshed_at=cycle_start)
         )
 
     incoming_device_ids = {d["ha_device_id"] for d in device_records}
@@ -508,10 +546,110 @@ async def _refresh_thread_tables(
             "event": "thread_refresh",
             "border_routers": len(router_records),
             "devices": len(device_records),
+            "source": source,
             "status": "ok",
         },
     )
     return len(router_records), len(device_records)
+
+
+def _looks_like_ipv4(s: str) -> bool:
+    parts = s.split(".")
+    if len(parts) != 4:
+        return False
+    try:
+        return all(0 <= int(p) <= 255 for p in parts)
+    except (ValueError, TypeError):
+        return False
+
+
+def _router_from_ws(raw: dict[str, Any]) -> dict[str, Any] | None:
+    """Translate a WS ``router_discovered`` data payload into our router
+    record shape. Returns ``None`` if the payload is missing an identity."""
+    ha_device_id = (raw.get("extended_address") or raw.get("key") or "").strip()
+    if not ha_device_id:
+        return None
+    vendor = (raw.get("vendor_name") or "").strip()
+    model = (raw.get("model_name") or "").strip()
+    if vendor and model:
+        combined: str | None = f"{vendor} {model}"
+    else:
+        combined = vendor or model or None
+    friendly = (
+        raw.get("instance_name")
+        or raw.get("server", "").rstrip(".")
+        or ha_device_id
+    )
+    lan_ip = next(
+        (a for a in (raw.get("addresses") or []) if _looks_like_ipv4(a)),
+        None,
+    )
+    return {
+        "ha_device_id": ha_device_id,
+        "friendly_name": str(friendly),
+        "model": combined,
+        "online": True,  # mDNS-discovered this cycle = online
+        # HA's WS API does not expose endpoint parentage, so we cannot
+        # know how many Thread devices are attached to each border
+        # router without talking to the OTBR directly. Leave at 0.
+        "attached_device_count": 0,
+        # Carried for logging / future inventory dedup. Not persisted on
+        # ThreadBorderRouter (no column) but logged for diagnostics.
+        "_lan_ipv4": lan_ip,
+        "_network_name": raw.get("network_name"),
+        "_extended_pan_id": raw.get("extended_pan_id"),
+    }
+
+
+async def _fetch_routers_via_ws(
+    conn: HomeAssistantConnection,
+) -> list[dict[str, Any]]:
+    """Discover Thread border routers via HA's WebSocket API.
+
+    Steps:
+      1. ``thread/list_datasets`` to identify the preferred network's
+         extended_pan_id (so we ignore border routers from neighbouring
+         Thread networks that mDNS may surface — e.g. an Amazon Echo
+         advertising its own network).
+      2. ``thread/discover_routers`` subscription to collect all
+         border routers HA sees on the LAN in a short mDNS window.
+
+    Returns the list of router records filtered to the preferred network
+    (or unfiltered if no dataset is marked preferred). Raises
+    ``HAWSError`` subclasses on failure so the caller can decide whether
+    to fall back to the REST path.
+    """
+    datasets = await ha_ws_client.list_thread_datasets(conn)
+    preferred_epanid: str | None = None
+    for d in datasets:
+        if d.get("preferred"):
+            preferred_epanid = d.get("extended_pan_id")
+            break
+
+    discovered = await ha_ws_client.discover_routers(conn, duration_seconds=3.5)
+
+    # Dedupe by extended_address — HA can emit a router twice during the
+    # discovery window (initial cached result + live mDNS hit).
+    seen: dict[str, dict[str, Any]] = {}
+    for raw in discovered:
+        if preferred_epanid and raw.get("extended_pan_id") != preferred_epanid:
+            continue
+        rec = _router_from_ws(raw)
+        if rec is None:
+            continue
+        # Keep the most recent entry per ha_device_id.
+        seen[rec["ha_device_id"]] = rec
+
+    logger.info(
+        "thread_refresh.ws_discovered",
+        extra={
+            "event": "thread_refresh.ws_discovered",
+            "total_events": len(discovered),
+            "preferred_epanid": preferred_epanid,
+            "unique_routers": len(seen),
+        },
+    )
+    return list(seen.values())
 
 
 # ── Cycle ────────────────────────────────────────────────────────────────

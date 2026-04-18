@@ -754,8 +754,9 @@ The Network Advisor reads IoT device state, Thread topology, and delivers critic
 | Entity count exposed | ~530 total; ~161 ingested after curated domain filter |
 | Active integrations | HomeKit, Aqara, Thread, MQTT |
 | Active `notify.*` services | `mobile_app_jd16pro`, `mobile_app_iphone`, `mobile_app_ipad_7`, `mobile_app_kimberley_s_ipad_2` |
-| Thread diagnostic endpoint | `/api/config/thread/status` returns **404** on the current HA version — Thread tab in the advisor is correctly empty. Thread border routers still visible via per-entity `integration=thread` filter once the HA version exposes them. |
-| Known limitation (feature 016) | HA entity attributes from `/api/states` do not include MAC/IP, so the inventory merge cannot dedup HA devices against scanner-discovered rows by MAC. Net effect: HomePods / Aqara hubs that the LAN scanner already sees may appear twice in the unified inventory — once from the scanner (MAC-keyed) and once from HA (`ha_device_id`-keyed). Resolving needs a deeper HA integration (WebSocket device registry subscription); tracked for a future iteration. |
+| Thread data source | HA's `/api/config/thread/status` REST endpoint returns **404** on current versions. The advisor now reads Thread topology via the **authenticated WebSocket API** (`thread/list_datasets` + `thread/discover_routers` subscription) instead. REST path remains as a fallback for older HA versions. |
+| Preferred Thread network | `MyHome1022391779` — the 3 tracked border routers are filtered to this network; stray Thread routers on neighbouring networks (e.g. an Amazon Echo on `AMZN-Thread-26af`) are ignored. |
+| Known limitation (feature 016) | HA entity attributes from `/api/states` do not include MAC/IP, so the inventory merge cannot dedup HA devices against scanner-discovered rows by MAC. Net effect: HomePods / Aqara hubs that the LAN scanner already sees may appear twice in the unified inventory — once from the scanner (MAC-keyed) and once from HA (`ha_device_id`-keyed). The WS-discovered border-router LAN IPs (now available from `thread/discover_routers`) could close this gap in a follow-up; not yet wired into the merge function. |
 
 ### Advisor-side config surface
 

@@ -337,10 +337,19 @@ async def test_run_cycle_populates_thread_tables(poller_env, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_run_cycle_empties_thread_tables_when_none(poller_env, monkeypatch):
-    """HA returning 404/501 (None) must leave both Thread tables empty."""
+    """HA WS unavailable + REST returning 404/501 (None) must clear
+    ThreadDevice rows and mark existing ThreadBorderRouter rows offline.
+
+    Routers are marked offline rather than deleted so the
+    thread_border_router_offline rule can observe the online->offline
+    transition on the next rule-engine cycle.
+    """
+    from app.services import ha_ws_client as _ws
+    from app.services.ha_ws_client import HAWSUnreachableError
+
     session_factory = poller_env
 
-    # Pre-seed rows so we prove they get removed.
+    # Pre-seed rows so we prove they get the correct lifecycle treatment.
     async with session_factory() as session:
         session.add(
             ThreadBorderRouter(
@@ -366,6 +375,13 @@ async def test_run_cycle_empties_thread_tables_when_none(poller_env, monkeypatch
         await session.commit()
 
     monkeypatch.setattr(ha_client, "states", AsyncMock(return_value=[]))
+    # WS path unavailable (e.g. WS disabled on older HA) -> falls through
+    # to the REST path which also returns None (404).
+    monkeypatch.setattr(
+        _ws,
+        "list_thread_datasets",
+        AsyncMock(side_effect=HAWSUnreachableError("ws disabled")),
+    )
     monkeypatch.setattr(ha_client, "thread_status", AsyncMock(return_value=None))
 
     await run_cycle()
@@ -376,8 +392,11 @@ async def test_run_cycle_empties_thread_tables_when_none(poller_env, monkeypatch
         )
         devices = (await session.execute(select(ThreadDevice))).scalars().all()
 
-    assert routers == []
+    # Thread endpoints are cleared; border routers persist but marked offline.
     assert devices == []
+    assert len(routers) == 1
+    assert routers[0].ha_device_id == "br-stale"
+    assert routers[0].online is False
 
 
 # ── (f) last_seen_parent_id preservation across cycles ─────────────────
