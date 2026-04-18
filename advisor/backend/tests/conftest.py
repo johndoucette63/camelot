@@ -1,5 +1,16 @@
 """Shared pytest fixtures for all backend tests."""
 
+import os
+
+# Feature 016 — provide a valid Fernet key before app.config is imported, so
+# Settings() validation does not blow up in CI / dev shells that have no
+# ADVISOR_ENCRYPTION_KEY set. A single fixed test key is deterministic and
+# lets encrypt/decrypt round-trips work across every test file.
+os.environ.setdefault(
+    "ADVISOR_ENCRYPTION_KEY",
+    "AY-RoXHkQOuLhK0mQBzxrC-nXiuVMuAYD3Kyo4Znw7w=",
+)
+
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine

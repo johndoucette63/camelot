@@ -35,6 +35,7 @@ export function Devices() {
   }
 
   async function handleRescan(device: Device) {
+    if (!device.mac_address) return;
     try {
       const res = await fetch(`/api/devices/${encodeURIComponent(device.mac_address)}/re-enrich`, {
         method: "POST",
@@ -47,6 +48,7 @@ export function Devices() {
   }
 
   async function handleToggleMonitor(device: Device) {
+    if (!device.mac_address) return;
     try {
       const res = await fetch(`/api/devices/${encodeURIComponent(device.mac_address)}/monitor-offline`, {
         method: "PATCH",

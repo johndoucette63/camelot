@@ -3,6 +3,7 @@ import Home from "./pages/Home";
 import Chat from "./pages/Chat";
 import { Devices } from "./pages/Devices";
 import { Events } from "./pages/Events";
+import HomeAssistant from "./pages/HomeAssistant";
 import { Services } from "./pages/Services";
 import Alerts from "./pages/Alerts";
 import Playbook from "./pages/Playbook";
@@ -25,6 +26,7 @@ function Nav() {
       <Link to="/services" className={linkClass("/services")}>Services</Link>
       <Link to="/alerts" className={linkClass("/alerts")}>Alerts</Link>
       <Link to="/events" className={linkClass("/events")}>Events</Link>
+      <Link to="/home-assistant" className={linkClass("/home-assistant")}>Home Assistant</Link>
       <Link to="/playbook" className={linkClass("/playbook")}>Playbook</Link>
       <Link to="/chat" className={linkClass("/chat")}>Chat</Link>
       <Link to="/settings" className={linkClass("/settings")}>Settings</Link>
@@ -43,6 +45,7 @@ function App() {
         <Route path="/services" element={<Services />} />
         <Route path="/alerts" element={<Alerts />} />
         <Route path="/events" element={<Events />} />
+        <Route path="/home-assistant" element={<HomeAssistant />} />
         <Route path="/playbook" element={<Playbook />} />
         <Route path="/chat" element={<Chat />} />
         <Route path="/settings" element={<Settings />} />

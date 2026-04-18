@@ -1,3 +1,6 @@
+import base64
+
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -11,6 +14,34 @@ class Settings(BaseSettings):
     ai_narrative_timeout_seconds: int = 10
     ai_narrative_cache_seconds: int = 60
     ha_webhook_timeout_seconds: int = 5
+
+    # ── Home Assistant integration (feature 016) ─────────────────────────
+    # Fernet key for encrypting the HA long-lived access token at rest.
+    # Required at startup; no default so a missing key fails loudly
+    # (Constitution V: silent failures unacceptable).
+    advisor_encryption_key: SecretStr = SecretStr("")
+    ha_poll_interval_seconds: int = 60
+    ha_request_timeout_seconds: int = 10
+    ha_notify_retry_budget_seconds: int = 300
+
+    @field_validator("advisor_encryption_key")
+    @classmethod
+    def _validate_fernet_key(cls, v: SecretStr) -> SecretStr:
+        raw = v.get_secret_value()
+        if not raw:
+            raise ValueError(
+                "ADVISOR_ENCRYPTION_KEY is required (Fernet key, 32 URL-safe base64 bytes). "
+                "Generate with: python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+            )
+        try:
+            decoded = base64.urlsafe_b64decode(raw.encode("ascii"))
+        except Exception as e:
+            raise ValueError(f"ADVISOR_ENCRYPTION_KEY is not valid URL-safe base64: {e}") from e
+        if len(decoded) != 32:
+            raise ValueError(
+                f"ADVISOR_ENCRYPTION_KEY decoded to {len(decoded)} bytes; Fernet requires 32."
+            )
+        return v
 
     # ── VPN leak watchdog (feature 015) ──────────────────────────────────
     # Comma-separated list of IPs that, if observed as Deluge's external IP,

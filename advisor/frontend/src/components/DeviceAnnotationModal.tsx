@@ -73,6 +73,10 @@ export function DeviceAnnotationModal({ device, onClose, onSaved }: Props) {
         .map((t) => t.trim())
         .filter(Boolean);
 
+      if (!device.mac_address) {
+        throw new Error("Device has no MAC address — annotation requires a MAC.");
+      }
+
       const res = await fetch(`/api/devices/${encodeURIComponent(device.mac_address)}/annotation`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -111,7 +115,7 @@ export function DeviceAnnotationModal({ device, onClose, onSaved }: Props) {
           </button>
         </div>
         <p className="text-sm text-gray-500 font-mono">
-          {device.hostname ?? device.mac_address} · {device.ip_address}
+          {device.hostname ?? device.mac_address ?? device.ip_address} · {device.ip_address}
         </p>
         <p className="text-xs text-gray-400 mb-3">
           Last seen: {new Date(device.last_seen).toLocaleString()}

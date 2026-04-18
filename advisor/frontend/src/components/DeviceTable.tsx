@@ -18,6 +18,21 @@ interface DeviceTableProps {
   onRescan?: (device: Device) => void;
 }
 
+function haConnectivityClasses(type: string): string {
+  switch (type) {
+    case "wifi":
+      return "border-blue-200 bg-blue-50 text-blue-700";
+    case "ethernet":
+      return "border-slate-200 bg-slate-50 text-slate-700";
+    case "thread":
+      return "border-purple-200 bg-purple-50 text-purple-700";
+    case "zigbee":
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    case "other":
+    default:
+      return "border-gray-200 bg-gray-50 text-gray-700";
+  }
+}
 
 export function DeviceTable({ devices, onRowClick, onToggleMonitor, onRescan }: DeviceTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -46,9 +61,14 @@ export function DeviceTable({ devices, onRowClick, onToggleMonitor, onRescan }: 
     {
       accessorKey: "mac_address",
       header: "MAC Address",
-      cell: ({ getValue }) => (
-        <span className="font-mono text-sm">{getValue() as string}</span>
-      ),
+      cell: ({ getValue }) => {
+        const mac = getValue() as string | null;
+        return mac ? (
+          <span className="font-mono text-sm">{mac}</span>
+        ) : (
+          <span className="text-gray-400">—</span>
+        );
+      },
     },
     {
       accessorKey: "vendor",
@@ -59,6 +79,23 @@ export function DeviceTable({ devices, onRowClick, onToggleMonitor, onRescan }: 
       accessorKey: "os_family",
       header: "OS",
       cell: ({ getValue }) => (getValue() as string | null) ?? <span className="text-gray-400">—</span>,
+    },
+    {
+      id: "ha_connectivity",
+      header: "HA",
+      accessorFn: (row) => row.ha_connectivity_type ?? "",
+      cell: ({ row }) => {
+        const type = row.original.ha_connectivity_type;
+        if (!type) return <span className="text-gray-400">—</span>;
+        const style = haConnectivityClasses(type);
+        return (
+          <span
+            className={`rounded-full border px-2 py-0.5 text-xs font-medium ${style}`}
+          >
+            {type}
+          </span>
+        );
+      },
     },
     {
       id: "role",
@@ -105,37 +142,51 @@ export function DeviceTable({ devices, onRowClick, onToggleMonitor, onRescan }: 
       header: "Monitor",
       enableSorting: false,
       size: 70,
-      cell: ({ row }) => (
-        <input
-          type="checkbox"
-          checked={row.original.monitor_offline}
-          title={row.original.monitor_offline ? "Offline monitoring enabled" : "Offline monitoring disabled"}
-          onChange={(e) => {
-            e.stopPropagation();
-            onToggleMonitor?.(row.original);
-          }}
-          onClick={(e) => e.stopPropagation()}
-          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-        />
-      ),
+      cell: ({ row }) => {
+        const disabled = !row.original.mac_address;
+        return (
+          <input
+            type="checkbox"
+            checked={row.original.monitor_offline}
+            disabled={disabled}
+            title={
+              disabled
+                ? "Offline monitoring requires a MAC address"
+                : row.original.monitor_offline
+                  ? "Offline monitoring enabled"
+                  : "Offline monitoring disabled"
+            }
+            onChange={(e) => {
+              e.stopPropagation();
+              onToggleMonitor?.(row.original);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="h-4 w-4 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+          />
+        );
+      },
     },
     {
       id: "actions",
       header: "",
       enableSorting: false,
       size: 70,
-      cell: ({ row }) => (
-        <button
-          title="Re-scan this device"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRescan?.(row.original);
-          }}
-          className="px-2 py-0.5 text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded border border-gray-200"
-        >
-          Re-scan
-        </button>
-      ),
+      cell: ({ row }) => {
+        const disabled = !row.original.mac_address;
+        return (
+          <button
+            title={disabled ? "Re-scan requires a MAC address" : "Re-scan this device"}
+            disabled={disabled}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!disabled) onRescan?.(row.original);
+            }}
+            className="rounded border border-gray-200 px-2 py-0.5 text-xs text-gray-500 hover:bg-blue-50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500"
+          >
+            Re-scan
+          </button>
+        );
+      },
     },
   ];
 

@@ -22,8 +22,9 @@ DbDep = Annotated[AsyncSession, Depends(get_db)]
 
 
 class EventDeviceOut(BaseModel):
-    mac_address: str
-    ip_address: str
+    # mac_address / ip_address nullable for HA-only devices (feature 016).
+    mac_address: str | None
+    ip_address: str | None
     hostname: str | None
     vendor: str | None
 

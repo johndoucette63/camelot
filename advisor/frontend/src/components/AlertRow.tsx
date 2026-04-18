@@ -1,11 +1,49 @@
 import { useEffect, useState } from "react";
-import type { Alert, AlertSeverity } from "../types";
+import type { Alert, AlertDeliveryStatus, AlertSeverity } from "../types";
 
 const SEVERITY_BADGE: Record<AlertSeverity, string> = {
   critical: "bg-red-100 text-red-800 border border-red-200",
   warning: "bg-amber-100 text-amber-800 border border-amber-200",
   info: "bg-blue-100 text-blue-800 border border-blue-200",
 };
+
+const DELIVERY_BADGE: Record<AlertDeliveryStatus, string> = {
+  sent: "bg-green-100 text-green-800 border border-green-200",
+  failed: "bg-amber-100 text-amber-800 border border-amber-200",
+  terminal: "bg-red-100 text-red-800 border border-red-200",
+  suppressed: "bg-gray-100 text-gray-700 border border-gray-200",
+  "n/a": "bg-gray-50 text-gray-500 border border-gray-200",
+  pending: "bg-blue-50 text-blue-700 border border-blue-200",
+};
+
+function renderDelivery(alert: Alert): { label: string; title: string } {
+  const status: AlertDeliveryStatus = alert.delivery_status ?? "pending";
+  const attempts = alert.delivery_attempt_count ?? 0;
+  switch (status) {
+    case "sent":
+      return { label: "Sent", title: "Delivered to Home Assistant" };
+    case "failed":
+      return {
+        label: `Retrying (${attempts}/4)`,
+        title: "Delivery failed — next retry scheduled",
+      };
+    case "terminal":
+      return {
+        label: "Failed (no HA)",
+        title: "Retry budget exhausted — check Home Assistant",
+      };
+    case "suppressed":
+      return { label: "Muted", title: "Alert muted — no notification sent" };
+    case "n/a":
+      return {
+        label: "—",
+        title: "Below severity threshold or no HA sink configured",
+      };
+    case "pending":
+    default:
+      return { label: "Pending", title: "Awaiting initial delivery" };
+  }
+}
 
 const STATE_CLASS: Record<string, string> = {
   active: "text-red-700",
@@ -79,6 +117,8 @@ export default function AlertRow({ alert, onAcknowledge, onResolve }: Props) {
   const canAck = alert.state === "active";
   const canResolve = alert.state === "active" || alert.state === "acknowledged";
   const liveMessage = useLiveDowntime(alert);
+  const deliveryStatus: AlertDeliveryStatus = alert.delivery_status ?? "pending";
+  const { label: deliveryLabel, title: deliveryTitle } = renderDelivery(alert);
 
   return (
     <tr className="border-t border-gray-100 align-top" data-testid={`alert-row-${alert.id}`}>
@@ -99,6 +139,15 @@ export default function AlertRow({ alert, onAcknowledge, onResolve }: Props) {
         className={`px-3 py-2 text-xs font-medium ${STATE_CLASS[alert.state] ?? ""}`}
       >
         {alert.state}
+      </td>
+      <td className="px-3 py-2 text-xs">
+        <span
+          title={deliveryTitle}
+          data-testid={`alert-delivery-${deliveryStatus}`}
+          className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${DELIVERY_BADGE[deliveryStatus]}`}
+        >
+          {deliveryLabel}
+        </span>
       </td>
       <td className="px-3 py-2 text-xs text-gray-500">
         {formatTime(alert.created_at)}

@@ -17,6 +17,7 @@ from app.routers import (
     devices,
     events,
     health,
+    home_assistant,
     notes,
     recommendations,
     scans,
@@ -25,6 +26,7 @@ from app.routers import (
     vpn,
 )
 from app.services import rule_engine
+from app.services.ha_poller import run_ha_poller
 from app.services.health_checker import run_health_checker
 
 # Structured JSON logging
@@ -55,6 +57,7 @@ async def lifespan(app: FastAPI):
 
     health_task = asyncio.create_task(run_health_checker(app))
     rule_engine_task = asyncio.create_task(rule_engine.run(app))
+    ha_poller_task = asyncio.create_task(run_ha_poller())
     logger.info("Network Advisor backend started")
 
     yield
@@ -62,7 +65,8 @@ async def lifespan(app: FastAPI):
     # Shutdown
     health_task.cancel()
     rule_engine_task.cancel()
-    for task in (health_task, rule_engine_task):
+    ha_poller_task.cancel()
+    for task in (health_task, rule_engine_task, ha_poller_task):
         try:
             await task
         except asyncio.CancelledError:
@@ -96,3 +100,4 @@ app.include_router(recommendations.router)
 app.include_router(alerts.router)
 app.include_router(settings_router.router)
 app.include_router(vpn.router)
+app.include_router(home_assistant.router)

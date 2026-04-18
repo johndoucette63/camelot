@@ -73,6 +73,11 @@ def _serialize(alert: Alert, label: str | None) -> dict[str, Any]:
         "resolved_at": _iso(alert.resolved_at),
         "resolution_source": alert.resolution_source,
         "device_last_seen": device_last_seen,
+        # Feature 016 / US-3 — HA notification delivery state.
+        "delivery_status": alert.delivery_status,
+        "delivery_attempt_count": alert.delivery_attempt_count,
+        "delivery_last_attempt_at": _iso(alert.delivery_last_attempt_at),
+        "delivery_next_attempt_at": _iso(alert.delivery_next_attempt_at),
     }
 
 

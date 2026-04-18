@@ -40,8 +40,10 @@ class AnnotationOut(BaseModel):
 
 class DeviceOut(BaseModel):
     id: int
-    mac_address: str
-    ip_address: str
+    # mac_address and ip_address are nullable for HA-only devices (Thread /
+    # Zigbee endpoints with no LAN presence — feature 016).
+    mac_address: str | None
+    ip_address: str | None
     hostname: str | None
     vendor: str | None
     first_seen: str
@@ -56,6 +58,10 @@ class DeviceOut(BaseModel):
     ssdp_friendly_name: str | None = None
     ssdp_model: str | None = None
     last_enriched_at: str | None = None
+    # Home Assistant provenance (feature 016).
+    ha_device_id: str | None = None
+    ha_connectivity_type: str | None = None
+    ha_last_seen_at: str | None = None
     annotation: AnnotationOut | None
 
 
@@ -87,6 +93,9 @@ def _device_to_out(device: Device) -> DeviceOut:
         ssdp_friendly_name=device.ssdp_friendly_name,
         ssdp_model=device.ssdp_model,
         last_enriched_at=device.last_enriched_at.isoformat() + "Z" if device.last_enriched_at else None,
+        ha_device_id=device.ha_device_id,
+        ha_connectivity_type=device.ha_connectivity_type,
+        ha_last_seen_at=device.ha_last_seen_at.isoformat() + "Z" if device.ha_last_seen_at else None,
         annotation=ann,
     )
 

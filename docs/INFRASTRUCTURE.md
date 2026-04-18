@@ -740,4 +740,57 @@ ssh pi@192.168.10.105 "sudo chmod -R 777 /mnt/media-disk/MediaStorage/Media/Movi
 
 ---
 
+## Home Assistant Integration (feature 016)
+
+The Network Advisor reads IoT device state, Thread topology, and delivers critical alerts via a single configured Home Assistant connection.
+
+### Home Assistant deployment (as of 2026-04-17)
+
+| Property | Value |
+|----------|-------|
+| Host | Dedicated Raspberry Pi (IP recorded in HA admin UI; update this row on re-deploy) |
+| Base URL used by advisor | `http://homeassistant.local:8123` (or the Pi's LAN IP) |
+| Core version | _Record on first config_ |
+| Active integrations | HomeKit, Aqara, Thread, MQTT |
+| Identified Thread border routers | HomePod mini units, Aqara hub(s) — enumerate here after first poll |
+| Known Thread issues | Fragmentation across border routers historically observed; advisor Thread view surfaces current state |
+
+### Advisor-side config surface
+
+| Variable | Purpose | Where it lives |
+|----------|---------|----------------|
+| `ADVISOR_ENCRYPTION_KEY` | Fernet key for encrypting the HA long-lived access token at rest. 32-byte URL-safe base64. | `advisor/.env` on HOLYGRAIL (gitignored). Required — advisor refuses to start without it. |
+| `HA_POLL_INTERVAL_SECONDS` | Poll cadence (default 60). | `advisor/.env` (optional override). |
+| `HA_REQUEST_TIMEOUT_SECONDS` | Per-request HTTP timeout (default 10). | `advisor/.env` (optional override). |
+| `HA_NOTIFY_RETRY_BUDGET_SECONDS` | Wall-clock ceiling for notification retry loop (default 300). | `advisor/.env` (optional override). |
+| HA base URL + access token | Connection credentials. | Advisor DB (`home_assistant_connections` singleton). Token is Fernet-encrypted with `ADVISOR_ENCRYPTION_KEY`. |
+
+### Generate the Fernet key
+
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Paste the output into `ADVISOR_ENCRYPTION_KEY=` in `advisor/.env` on HOLYGRAIL and restart the advisor container. Keep a backup of this key in your password manager — it is the only thing that can decrypt the stored HA token.
+
+### Rotate the HA access token
+
+1. Home Assistant UI → user profile → Long-Lived Access Tokens → revoke old, create new.
+2. Advisor UI → Settings → Home Assistant → paste the new token → Save.
+
+### Rotate `ADVISOR_ENCRYPTION_KEY`
+
+The old ciphertext is unreadable after a key change. Procedure:
+
+1. Back up the current `ADVISOR_ENCRYPTION_KEY` (password manager).
+2. Generate and set a new key in `advisor/.env`.
+3. Restart the advisor container.
+4. Advisor UI → Settings → Home Assistant → paste the HA access token again → Save (this re-encrypts under the new key).
+
+### Decommission the integration
+
+Advisor UI → Settings → Home Assistant → Remove. The poller stops within one cycle; HA provenance on inventory rows is cleared; HA notification sinks become inactive. Alternatively: `DELETE /settings/home-assistant`.
+
+---
+
 *Updated: April 2026*

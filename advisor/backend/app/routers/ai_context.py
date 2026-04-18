@@ -30,8 +30,9 @@ DbDep = Annotated[AsyncSession, Depends(get_db)]
 
 
 class AiContextDevice(BaseModel):
-    mac: str
-    ip: str
+    # mac / ip nullable for HA-only devices (feature 016).
+    mac: str | None
+    ip: str | None
     hostname: str | None
     role: str
     description: str | None

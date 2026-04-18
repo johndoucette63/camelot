@@ -24,9 +24,13 @@ from app.models.annotation import Annotation
 from app.models.conversation import Conversation
 from app.models.device import Device
 from app.models.event import Event
+from app.models.ha_entity_snapshot import HAEntitySnapshot
 from app.models.health_check_result import HealthCheckResult
+from app.models.home_assistant_connection import HomeAssistantConnection
 from app.models.note import Note
 from app.models.service_definition import ServiceDefinition
+from app.models.thread_border_router import ThreadBorderRouter
+from app.models.thread_device import ThreadDevice
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +54,42 @@ _PRONOUN_PATTERN = re.compile(
 )
 
 _IPV4_PATTERN = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+
+# Classifier tokens for IoT / home-automation / Thread questions. When a
+# token matches, we include the Home Assistant grounding section (feature
+# 016 / research R9). Classifier-driven inclusion prevents prompt pollution
+# on unrelated questions.
+_IOT_KEYWORDS = (
+    "thread",
+    "border router",
+    "zigbee",
+    "home assistant",
+    "homeassistant",
+    "aqara",
+    "homekit",
+    "homepod",
+    "matter",
+    "iot",
+    "smart home",
+    "smart plug",
+    "smart light",
+    "smart bulb",
+    "smart switch",
+    "motion sensor",
+    "door sensor",
+    "leak sensor",
+)
+
+
+def _query_is_iot_related(query: str) -> bool:
+    """Classify whether the user's question touches the HA / IoT surface.
+
+    Case-insensitive substring match — cheap and good enough. False positives
+    are fine (they just include extra context); false negatives mean the
+    chat can't answer IoT questions, which is worse.
+    """
+    q = query.lower()
+    return any(kw in q for kw in _IOT_KEYWORDS)
 
 # Don't try to resolve referents in long user queries — they usually have
 # enough context on their own and the rewrite adds noise.
@@ -300,6 +340,62 @@ async def _load_notes_section(db: AsyncSession) -> str:
     return "\n\n".join(lines)
 
 
+async def _load_home_assistant_section(db: AsyncSession) -> str:
+    """Grounding block for the Home Assistant integration (feature 016).
+
+    Compact on purpose — a rich HA install can have thousands of entities
+    and the whole snapshot would blow the prompt budget without helping the
+    answer. We show:
+      * connection health (last-success age, current error class)
+      * counts: total entities, Thread border routers online/total, Thread
+        devices online/total
+      * up to 20 most-recently-changed entities with entity_id, friendly
+        name, state, last_changed
+    """
+    conn_row = (await db.execute(select(HomeAssistantConnection).where(HomeAssistantConnection.id == 1))).scalar_one_or_none()
+    if conn_row is None or conn_row.base_url is None:
+        return "## Home Assistant\n(no Home Assistant connection configured)"
+
+    lines: list[str] = ["## Home Assistant"]
+    if conn_row.last_error:
+        lines.append(f"- status: DEGRADED ({conn_row.last_error})")
+    else:
+        lines.append("- status: OK")
+    if conn_row.last_success_at:
+        age = datetime.utcnow().replace(tzinfo=conn_row.last_success_at.tzinfo) - conn_row.last_success_at
+        lines.append(f"- last successful poll: {int(age.total_seconds())}s ago")
+
+    entity_count = (await db.execute(select(func.count()).select_from(HAEntitySnapshot))).scalar_one()
+    br_total = (await db.execute(select(func.count()).select_from(ThreadBorderRouter))).scalar_one()
+    br_online = (
+        await db.execute(
+            select(func.count()).select_from(ThreadBorderRouter).where(ThreadBorderRouter.online.is_(True))
+        )
+    ).scalar_one()
+    td_total = (await db.execute(select(func.count()).select_from(ThreadDevice))).scalar_one()
+    td_online = (
+        await db.execute(
+            select(func.count()).select_from(ThreadDevice).where(ThreadDevice.online.is_(True))
+        )
+    ).scalar_one()
+    lines.append(f"- entities tracked: {entity_count}")
+    lines.append(f"- Thread border routers: {br_online}/{br_total} online")
+    lines.append(f"- Thread devices: {td_online}/{td_total} online")
+
+    recent = (
+        await db.execute(
+            select(HAEntitySnapshot).order_by(HAEntitySnapshot.last_changed.desc()).limit(20)
+        )
+    ).scalars().all()
+    if recent:
+        lines.append("")
+        lines.append("### Recently changed entities")
+        for e in recent:
+            lines.append(f"- {e.friendly_name} ({e.entity_id}) = {e.state} (at {e.last_changed.isoformat()})")
+
+    return "\n".join(lines)
+
+
 async def _safe_load(
     name: str, loader, db: AsyncSession
 ) -> str:
@@ -444,9 +540,15 @@ async def assemble_chat_messages(
     notes_md = await _safe_load("admin notes", _load_notes_section, db)
     events_md = await _safe_load("events", _load_events_section, db)
 
-    system_content = "\n\n".join(
-        [SYSTEM_PREAMBLE, devices_md, services_md, alerts_md, notes_md, events_md]
-    )
+    sections: list[str] = [SYSTEM_PREAMBLE, devices_md, services_md, alerts_md, notes_md, events_md]
+
+    # Home Assistant grounding is classifier-gated (research R9): include it
+    # only when the user's question hints at IoT / Thread / HA topics.
+    if _query_is_iot_related(new_user_content):
+        ha_md = await _safe_load("home assistant", _load_home_assistant_section, db)
+        sections.append(ha_md)
+
+    system_content = "\n\n".join(sections)
 
     # Load prior messages for this conversation. Exclude empty assistant
     # shells (content=='' and finished_at IS NULL) which represent the

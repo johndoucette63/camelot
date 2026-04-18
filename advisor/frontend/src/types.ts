@@ -8,7 +8,7 @@ export interface Annotation {
 
 export interface Device {
   id: number;
-  mac_address: string;
+  mac_address: string | null;
   ip_address: string;
   hostname: string | null;
   vendor: string | null;
@@ -24,6 +24,9 @@ export interface Device {
   ssdp_friendly_name: string | null;
   ssdp_model: string | null;
   last_enriched_at: string | null;
+  ha_device_id?: string | null;
+  ha_connectivity_type?: string | null;
+  ha_last_seen_at?: string | null;
   annotation: Annotation | null;
 }
 
@@ -178,6 +181,14 @@ export type AlertTargetType = "device" | "service" | "system";
 export type AlertResolutionSource = "auto" | "manual";
 export type AlertSource = "rule" | "ai";
 
+export type AlertDeliveryStatus =
+  | "pending"
+  | "sent"
+  | "failed"
+  | "suppressed"
+  | "terminal"
+  | "n/a";
+
 export interface Alert {
   id: number;
   rule_id: string;
@@ -195,6 +206,11 @@ export interface Alert {
   resolved_at?: string | null;
   resolution_source?: AlertResolutionSource | null;
   device_last_seen?: string | null;
+  /** Feature 016 / US-3 — HA notification delivery state. */
+  delivery_status?: AlertDeliveryStatus;
+  delivery_attempt_count?: number;
+  delivery_last_attempt_at?: string | null;
+  delivery_next_attempt_at?: string | null;
 }
 
 export interface AlertListResponse {
@@ -308,4 +324,70 @@ export interface NoteSuggestion {
 export interface SuggestNotesResponse {
   suggestions: NoteSuggestion[];
   error?: string;
+}
+
+// ── Home Assistant ─────────────────────────────────────────────────────
+
+export type HAConnectionStatus =
+  | "ok"
+  | "auth_failure"
+  | "unreachable"
+  | "unexpected_payload"
+  | "not_configured";
+
+export interface HAConnection {
+  configured: boolean;
+  base_url: string | null;
+  token_masked: string | null;
+  status: HAConnectionStatus;
+  last_success_at: string | null;
+  last_error: string | null;
+  last_error_at: string | null;
+}
+
+export interface HAConnectionUpsert {
+  base_url: string;
+  access_token: string;
+}
+
+export interface HAEntity {
+  entity_id: string;
+  ha_device_id: string;
+  domain: string;
+  friendly_name: string;
+  state: string;
+  last_changed: string;
+  attributes: Record<string, unknown>;
+}
+
+export interface HAEntitiesResponse {
+  connection_status: HAConnectionStatus;
+  polled_at: string | null;
+  stale: boolean;
+  entities: HAEntity[];
+}
+
+export interface ThreadBorderRouter {
+  ha_device_id: string;
+  friendly_name: string;
+  model: string | null;
+  online: boolean;
+  attached_device_count: number;
+}
+
+export interface ThreadDevice {
+  ha_device_id: string;
+  friendly_name: string;
+  parent_border_router_id: string | null;
+  online: boolean;
+  last_seen_parent_id: string | null;
+}
+
+export interface ThreadTopologyResponse {
+  connection_status: HAConnectionStatus;
+  polled_at: string | null;
+  border_routers: ThreadBorderRouter[];
+  devices: ThreadDevice[];
+  orphaned_device_count: number;
+  empty_reason: "no_thread_integration_data" | null;
 }

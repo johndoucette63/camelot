@@ -126,3 +126,42 @@ export async function testNotificationSink(
   }
   return handle<NotificationTestResponse>(res);
 }
+
+// ── HA-native notify sink helpers ──────────────────────────────────────
+
+export interface AvailableHaServicesResponse {
+  services: string[];
+}
+
+export interface AvailableHaServicesResult {
+  ok: boolean;
+  services: string[];
+  /** 409 error message when HA is unreachable or unconfigured. */
+  detail?: string;
+}
+
+/**
+ * Fetch the ``notify.*`` service names from the configured HA instance.
+ *
+ * Returns ``{ ok: true, services: [...] }`` on success and
+ * ``{ ok: false, services: [], detail }`` on 409. The form caller uses
+ * the 409 case to fall back to free-text entry.
+ */
+export async function fetchAvailableHaServices(): Promise<AvailableHaServicesResult> {
+  const res = await fetch("/api/settings/notifications/available-ha-services");
+  if (res.status === 409) {
+    let detail = "Home Assistant is not currently reachable";
+    try {
+      const body = (await res.json()) as { detail?: string };
+      if (body?.detail) detail = body.detail;
+    } catch {
+      /* ignore */
+    }
+    return { ok: false, services: [], detail };
+  }
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+  const body = (await res.json()) as AvailableHaServicesResponse;
+  return { ok: true, services: body.services ?? [] };
+}

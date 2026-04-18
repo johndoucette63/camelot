@@ -10,8 +10,14 @@ class Device(Base):
     __tablename__ = "devices"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    mac_address: Mapped[str] = mapped_column(String(17), unique=True, nullable=False)
-    ip_address: Mapped[str] = mapped_column(String(15), nullable=False)
+    # mac_address and ip_address are nullable starting feature 016 — HA-only
+    # devices (Thread/Zigbee endpoints) have no LAN MAC or IP. Uniqueness for
+    # scanner-discovered devices is preserved via the partial unique index
+    # devices_mac_address_unique on non-null values. A CHECK constraint
+    # (devices_identifier_present) guarantees at least mac_address OR
+    # ha_device_id is set, so no anonymous rows can exist.
+    mac_address: Mapped[str | None] = mapped_column(String(17), nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(15), nullable=True)
     hostname: Mapped[str | None] = mapped_column(String(255), nullable=True)
     vendor: Mapped[str | None] = mapped_column(String(255), nullable=True)
     first_seen: Mapped[datetime] = mapped_column(nullable=False, server_default=func.now())
@@ -30,6 +36,15 @@ class Device(Base):
     ssdp_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
     last_enriched_at: Mapped[datetime | None] = mapped_column(DateTime(), nullable=True)
     enrichment_ip: Mapped[str | None] = mapped_column(String(15), nullable=True)
+
+    # Home Assistant provenance (feature 016).
+    # ha_device_id is HA's per-device UUID — stable across HA restarts and
+    # entity renames; the canonical join key for HA-sourced rows.
+    ha_device_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    ha_connectivity_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    ha_last_seen_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     annotation: Mapped["Annotation"] = relationship(  # noqa: F821
         back_populates="device", uselist=False, cascade="all, delete-orphan"

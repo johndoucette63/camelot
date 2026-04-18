@@ -1,3 +1,5 @@
+import HAConnectionForm from "../components/HAConnectionForm";
+import HomeAssistantSinkForm from "../components/HomeAssistantSinkForm";
 import MuteList from "../components/MuteList";
 import NotificationSinkForm from "../components/NotificationSinkForm";
 import ThresholdForm from "../components/ThresholdForm";
@@ -9,6 +11,8 @@ export default function Settings() {
       <ThresholdForm />
       <MuteList />
       <NotificationSinkForm />
+      <HomeAssistantSinkForm />
+      <HAConnectionForm />
     </div>
   );
 }

@@ -153,6 +153,7 @@ export default function Alerts() {
                 <th className="px-3 py-2">Target</th>
                 <th className="px-3 py-2">Message</th>
                 <th className="px-3 py-2">State</th>
+                <th className="px-3 py-2">Delivery</th>
                 <th className="px-3 py-2">Created</th>
                 <th className="px-3 py-2" />
               </tr>
@@ -160,13 +161,13 @@ export default function Alerts() {
             <tbody>
               {loading && items.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-4 text-center text-gray-500">
+                  <td colSpan={7} className="py-4 text-center text-gray-500">
                     Loading...
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-4 text-center text-gray-500">
+                  <td colSpan={7} className="py-4 text-center text-gray-500">
                     No alerts match the current filters.
                   </td>
                 </tr>
