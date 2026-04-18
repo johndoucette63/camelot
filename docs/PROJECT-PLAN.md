@@ -187,11 +187,13 @@ Connect the Network Advisor to Home Assistant for IoT visibility.
 | 6.3 | Thread network visibility | Surface border router status, device connectivity |
 | 6.4 | HA notification integration | Advisor alerts pushed as HA notifications |
 | 6.5 | Advisor dashboard: IoT panel | Thread health, Zigbee devices, automation status |
+| 6.6 | Frigate NVR | GPU-accelerated local NVR, Reolink doorbell onboarding, MQTT → HA automations. See `docs/F6.2-frigate-nvr.md` + `specs/017-frigate-nvr/` |
 
 **Deliverables:**
 - Thread network health visible in advisor
 - HA alerts surfaced in advisor dashboard
 - Bidirectional: advisor can push notifications to HA
+- Local AI camera surveillance (Frigate) integrated with HA via MQTT
 
 ---
 

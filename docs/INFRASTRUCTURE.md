@@ -73,6 +73,9 @@ graph TB
 | InfluxDB | 8086 | Running | Time-series database (`network_metrics`) |
 | Smokeping | 8081 | Running | Continuous latency and packet loss monitoring |
 | Ollama | 11434 | Running | Local LLM inference (GPU-accelerated, Llama 3.1 8B) |
+| Frigate | 5000 | Planned (F6.2) | GPU-accelerated NVR (TensorRT YOLOv9-T) — Reolink doorbell in Phase 1, hub-backed solar cameras in Phase 2 |
+| go2rtc | 8554 (RTSP) / 1984 (admin) | Planned (F6.2) | Single-upstream camera restreamer (bundled in Frigate) — mitigates Reolink multi-connection firmware bug |
+| Mosquitto | 1884 (LAN) | Planned (F6.2) | MQTT broker bridging Frigate → Home Assistant (1883 is internal-only on the Frigate compose network) |
 
 ### Service Hostnames (via Traefik)
 
@@ -84,6 +87,7 @@ graph TB
 | `portainer.holygrail` | Portainer CE | https://192.168.10.129:9443 |
 | `traefik.holygrail` | Traefik dashboard | http://192.168.10.129:8080 |
 | `ollama.holygrail` | Ollama LLM API | http://192.168.10.129:11434 |
+| `frigate.holygrail` | Frigate NVR web UI | http://192.168.10.129:5000 |
 
 Mac setup: `sudo bash scripts/setup-holygrail-dns.sh` (adds `/etc/hosts` entries)
 
