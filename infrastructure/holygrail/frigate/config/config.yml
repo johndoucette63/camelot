@@ -38,9 +38,15 @@ go2rtc:
       - rtsp://{FRIGATE_DOORBELL_USER}:{FRIGATE_DOORBELL_PASSWORD}@doorbell.lan:554/h264Preview_01_sub
 
     # Wansview garage camera (1920×1080 H.264 High @ 20fps via /live/ch0).
-    # No sub-stream needed — detection is disabled (setup A: live + 24/7 record only).
+    # No sub-stream needed — detection is disabled.
+    # rtsp_transport=tcp is REQUIRED: Wansview defaults to UDP which loses
+    # ~1000 macroblocks per P-frame on this network (verified via ffprobe
+    # comparison). Manifests as horizontal banding + color glitches in
+    # both live view and recordings, plus false-positive motion blobs as
+    # the corruption fools Frigate's motion detector. TCP retransmits
+    # lost packets so the stream stays clean.
     garage:
-      - rtsp://{FRIGATE_GARAGE_USER}:{FRIGATE_GARAGE_PASSWORD}@garage.lan:554/live/ch0
+      - rtsp://{FRIGATE_GARAGE_USER}:{FRIGATE_GARAGE_PASSWORD}@garage.lan:554/live/ch0?rtsp_transport=tcp
 
     # PHASE 2: hub-backed solar cameras share the hub's IP and differ only by channel.
     # solar_cam_front:
