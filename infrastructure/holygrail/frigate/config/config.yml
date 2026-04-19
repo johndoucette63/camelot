@@ -162,8 +162,12 @@ cameras:
       retain:
         default: 30
 
-  # Wansview garage camera — setup A: live view + 24/7 continuous recording,
-  # no AI detection (no notifications wanted, see specs/019-garage-camera).
+  # Wansview garage camera — live view + motion-only retention (30 days).
+  # Live view is always available via go2rtc regardless of retention config.
+  # Detection is OFF (no notifications wanted), so we use motion-based
+  # retention rather than AI-events: any movement in frame keeps that
+  # segment for 30 days. Cars in/out + occasional walk-through ≈ 30-60
+  # min/day of motion ≈ ~50-80 GB for 30 days (vs ~1.6 TB if continuous).
   # Same libx264 record encoding as doorbell (segment-aligned keyframes,
   # no B-frames) so macOS playback works.
   garage:
@@ -191,9 +195,9 @@ cameras:
         retain:
           days: 30
       continuous:
-        days: 30   # garage = security archive: 30 days of 24/7 footage
+        days: 0   # no boring 24/7 footage; live view still works via go2rtc
       motion:
-        days: 0
+        days: 30  # motion clips kept 30 days for after-the-fact review
     snapshots:
       enabled: true
       retain:
