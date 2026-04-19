@@ -172,15 +172,13 @@ cameras:
   # no B-frames) so macOS playback works.
   garage:
     ffmpeg:
+      # Wansview camera ships a cleaner H.264 stream than the Reolink doorbell
+      # (no aggressive B-frames). Stream-copy works for macOS playback and uses
+      # ~0 CPU vs ~93% for libx264 re-encode. If post-deploy testing surfaces
+      # any VTDecompressionOutputCallback errors on garage recordings, fall
+      # back to the doorbell-style libx264 args.
       output_args:
-        record: >-
-          -f segment -segment_time 10 -segment_format mp4
-          -reset_timestamps 1 -strftime 1
-          -c:v libx264 -preset veryfast -tune zerolatency
-          -profile:v high -bf 0
-          -g 200 -force_key_frames expr:gte(t,n_forced*10)
-          -pix_fmt yuv420p
-          -c:a aac -ac 1 -ar 16000
+        record: preset-record-generic-audio-aac
       inputs:
         - path: rtsp://127.0.0.1:8554/garage
           roles: [record]
