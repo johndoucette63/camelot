@@ -80,7 +80,7 @@ services:
       - INFLUXDB_DB=network_metrics
       - INFLUXDB_USER=grafana
       - INFLUXDB_PASSWORD=grafanapass
-      - SPEEDTEST_INTERVAL=1800  # 30 minutes in seconds
+      - SPEEDTEST_INTERVAL=86400  # 24 hours in seconds (daily — keeps WAN usage under monthly cap)
     volumes:
       - ./scripts/speedtest_logger.py:/app/speedtest_logger.py:ro
       - ./scripts/requirements-speedtest.txt:/app/requirements.txt:ro
