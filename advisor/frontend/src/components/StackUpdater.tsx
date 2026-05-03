@@ -88,6 +88,18 @@ export function StackUpdater() {
     return () => clearInterval(id);
   }, [stacks]);
 
+  // When a stack transitions running → done, the cached run row is still
+  // the initial 'running' snapshot from the POST response. Refetch once
+  // so the output panel shows the final status + tail.
+  useEffect(() => {
+    for (const s of stacks) {
+      const cached = runs[s.key];
+      if (!s.running && cached?.status === "running") {
+        fetchLatestRun(s.key);
+      }
+    }
+  }, [stacks]);
+
   // When user opens output panel, fetch latest run for that stack.
   useEffect(() => {
     if (openOutput && !runs[openOutput]) {
@@ -190,7 +202,7 @@ function LastRunSummary({ stack }: { stack: StackInfo }) {
   if (!stack.last_status || !stack.last_finished_at) {
     return <span>No updates run yet</span>;
   }
-  const finished = new Date(stack.last_finished_at);
+  const finished = parseBackendDate(stack.last_finished_at);
   const ago = relativeTime(finished);
   const color =
     stack.last_status === "success"
@@ -263,8 +275,15 @@ function ConfirmDialog({
   );
 }
 
+// Backend emits naive UTC ISO strings (e.g. "2026-05-03T22:44:12.866602").
+// Without a tz suffix the browser interprets them as local time — append
+// `Z` so they're parsed as UTC.
+function parseBackendDate(iso: string): Date {
+  return new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : iso + "Z");
+}
+
 function relativeTime(date: Date): string {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
   if (seconds < 60) return `${seconds}s ago`;
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m ago`;
