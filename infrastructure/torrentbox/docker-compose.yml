@@ -3,7 +3,7 @@
 # Topology change vs prior live-on-Pi state:
 #   - NEW: gluetun sidecar (qmcgaw/gluetun) wraps Deluge in its own netns
 #   - CHANGED: deluge runs with network_mode: service:gluetun (no own ports, no networks block)
-#   - UNCHANGED: sonarr / radarr / prowlarr / flaresolverr / lidarr / lazylibrarian
+#   - UNCHANGED: sonarr / radarr / prowlarr / flaresolverr / lidarr
 #
 # Default-deny kill-switch is enforced inside gluetun's netns by FIREWALL=on.
 # If gluetun stops or the tunnel drops, deluge has no egress path — period.
@@ -161,22 +161,6 @@ services:
       - /mnt/nas/torrents:/downloads
     ports:
       - 8686:8686
-    restart: unless-stopped
-
-  lazylibrarian:
-    image: lscr.io/linuxserver/lazylibrarian:latest
-    container_name: lazylibrarian
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=America/Denver
-      - DOCKER_MODS=linuxserver/mods:universal-calibre
-    volumes:
-      - /home/john/docker/lazylibrarian:/config
-      - /mnt/nas/books:/books
-      - /mnt/nas/torrents:/downloads
-    ports:
-      - 5299:5299
     restart: unless-stopped
 
   # ── Portainer Agent ──────────────────────────────────────────────────────
