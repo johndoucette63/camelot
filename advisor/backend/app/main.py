@@ -18,6 +18,7 @@ from app.routers import (
     events,
     health,
     home_assistant,
+    infra,
     notes,
     recommendations,
     scans,
@@ -101,3 +102,4 @@ app.include_router(alerts.router)
 app.include_router(settings_router.router)
 app.include_router(vpn.router)
 app.include_router(home_assistant.router)
+app.include_router(infra.router)

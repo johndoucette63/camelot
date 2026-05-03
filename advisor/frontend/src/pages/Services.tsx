@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ContainerList } from "../components/ContainerList";
 import { DashboardSummary } from "../components/DashboardSummary";
 import { ServiceTable } from "../components/ServiceTable";
+import { StackUpdater } from "../components/StackUpdater";
 import type { ContainerState } from "../types";
 
 const POLL_INTERVAL = 60_000;
@@ -44,6 +45,11 @@ export function Services() {
       {/* Service health table */}
       <div className="mb-8">
         <ServiceTable hostsUnreachable={hostsUnreachable} />
+      </div>
+
+      {/* Stack updates — pull + redeploy buttons */}
+      <div className="mb-8">
+        <StackUpdater />
       </div>
 
       {/* Container inventory */}
