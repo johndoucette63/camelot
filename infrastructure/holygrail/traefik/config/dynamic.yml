@@ -1,5 +1,6 @@
 # Traefik File Provider — Static routes for host-network services
 # These services can't use Docker labels because they run in host network mode.
+# Also defines the default TLS certificate for the websecure entrypoint.
 
 http:
   routers:
@@ -20,3 +21,21 @@ http:
       loadBalancer:
         servers:
           - url: "http://192.168.10.129:32400"
+
+# TLS — self-signed cert with SAN *.holygrail. Generated per-host into
+# ../certs/ (gitignored); regenerate before expiry (10y default):
+#   cd /home/john/docker/traefik/certs && \
+#     openssl req -x509 -newkey rsa:2048 -sha256 -days 3650 -nodes \
+#       -keyout holygrail.key -out holygrail.crt \
+#       -subj "/CN=holygrail" \
+#       -addext "subjectAltName=DNS:*.holygrail,DNS:holygrail" && \
+#     chmod 0600 holygrail.key
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /etc/traefik/certs/holygrail.crt
+        keyFile: /etc/traefik/certs/holygrail.key
+  certificates:
+    - certFile: /etc/traefik/certs/holygrail.crt
+      keyFile: /etc/traefik/certs/holygrail.key

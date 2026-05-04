@@ -23,17 +23,20 @@ services:
       - holygrail-proxy
     ports:
       - "80:80"
+      - "443:443"
       - "8080:8080"
     environment:
       - TZ=${TZ:-America/Denver}
     command:
       # Entrypoints
       - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
       # Docker provider — discover labeled containers on holygrail-proxy
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
       - --providers.docker.network=holygrail-proxy
       # File provider — static routes for host-network services (Plex)
+      # + TLS default certificate (self-signed, *.holygrail SAN)
       - --providers.file.directory=/etc/traefik/config
       - --providers.file.watch=true
       # Dashboard
@@ -46,6 +49,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./config:/etc/traefik/config:ro
+      - ./certs:/etc/traefik/certs:ro
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://localhost:8080/ping || exit 1"]
       interval: 30s

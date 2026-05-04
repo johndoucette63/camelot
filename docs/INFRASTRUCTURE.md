@@ -88,6 +88,7 @@ graph TB
 | `traefik.holygrail` | Traefik dashboard | http://192.168.10.129:8080 |
 | `ollama.holygrail` | Ollama LLM API | http://192.168.10.129:11434 |
 | `frigate.holygrail` | Frigate NVR web UI | http://192.168.10.129:5000 |
+| `vault.holygrail` | Vaultwarden password vault | (Traefik-only, no host port) |
 
 Mac setup: `sudo bash scripts/setup-holygrail-dns.sh` (adds `/etc/hosts` entries)
 

@@ -20,3 +20,6 @@ nul
 # Frigate stack runtime secrets (generated on HOLYGRAIL, never committed)
 infrastructure/holygrail/frigate/mosquitto/config/passwords
 infrastructure/holygrail/frigate/mosquitto/config/conf.d/
+
+# Traefik TLS certs (generated per-host, key must never be committed)
+infrastructure/holygrail/traefik/certs/
